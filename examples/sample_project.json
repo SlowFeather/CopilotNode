@@ -1,0 +1,35 @@
+{
+  "nodes": [
+    {
+      "id": "click_0",
+      "action_type": "click",
+      "params": {
+        "x": 100,
+        "y": 200
+      },
+      "x": 50,
+      "y": 50,
+      "connections": ["wait_1"]
+    },
+    {
+      "id": "wait_1", 
+      "action_type": "wait",
+      "params": {
+        "duration": 1.0
+      },
+      "x": 200,
+      "y": 50,
+      "connections": ["keyboard_2"]
+    },
+    {
+      "id": "keyboard_2",
+      "action_type": "keyboard", 
+      "params": {
+        "text": "Hello World"
+      },
+      "x": 350,
+      "y": 50,
+      "connections": []
+    }
+  ]
+}

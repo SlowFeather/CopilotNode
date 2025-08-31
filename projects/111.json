@@ -1,0 +1,35 @@
+{
+  "nodes": [
+    {
+      "id": "2",
+      "action_type": "move",
+      "params": {
+        "x": 200,
+        "y": 200,
+        "duration": 0.2,
+        "duration_random": 0,
+        "speed_factor": 1,
+        "speed_random": 0
+      },
+      "x": 229,
+      "y": 303,
+      "connections": [
+        {
+          "target_id": "1",
+          "output_slot": 0,
+          "input_slot": 0
+        }
+      ]
+    },
+    {
+      "id": "1",
+      "action_type": "wait",
+      "params": {
+        "duration": 1
+      },
+      "x": 532,
+      "y": 268,
+      "connections": []
+    }
+  ]
+}

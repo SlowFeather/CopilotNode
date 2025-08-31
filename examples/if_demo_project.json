@@ -1,0 +1,81 @@
+{
+  "version": "1.0",
+  "description": "IF节点与图像查找联动演示项目",
+  "nodes": [
+    {
+      "id": "start_1",
+      "action_type": "move",
+      "params": {
+        "x": 400,
+        "y": 300
+      },
+      "x": 50,
+      "y": 50,
+      "connections": ["if_check_1"],
+      "true_connections": [],
+      "false_connections": []
+    },
+    {
+      "id": "if_check_1",
+      "action_type": "if",
+      "params": {
+        "condition_type": "image_exists",
+        "image_path": "target_button.png",
+        "threshold": 0.8
+      },
+      "x": 200,
+      "y": 50,
+      "connections": [],
+      "true_connections": ["click_found_1"],
+      "false_connections": ["wait_retry_1"]
+    },
+    {
+      "id": "click_found_1",
+      "action_type": "clickimg",
+      "params": {
+        "image_path": "target_button.png"
+      },
+      "x": 350,
+      "y": 20,
+      "connections": ["success_msg_1"],
+      "true_connections": [],
+      "false_connections": []
+    },
+    {
+      "id": "success_msg_1",
+      "action_type": "keyboard",
+      "params": {
+        "text": "找到并点击了目标图像！"
+      },
+      "x": 500,
+      "y": 20,
+      "connections": [],
+      "true_connections": [],
+      "false_connections": []
+    },
+    {
+      "id": "wait_retry_1",
+      "action_type": "wait",
+      "params": {
+        "duration": 1.0
+      },
+      "x": 350,
+      "y": 80,
+      "connections": ["retry_msg_1"],
+      "true_connections": [],
+      "false_connections": []
+    },
+    {
+      "id": "retry_msg_1",
+      "action_type": "keyboard",
+      "params": {
+        "text": "未找到目标图像，等待重试..."
+      },
+      "x": 500,
+      "y": 80,
+      "connections": [],
+      "true_connections": [],
+      "false_connections": []
+    }
+  ]
+}

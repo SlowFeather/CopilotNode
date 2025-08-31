@@ -1,0 +1,91 @@
+{
+  "nodes": [
+    {
+      "id": "1",
+      "action_type": "move",
+      "params": {
+        "x": 200,
+        "y": 200,
+        "duration": 0.2,
+        "duration_random": 0,
+        "speed_factor": 1,
+        "speed_random": 0
+      },
+      "x": 98,
+      "y": 167,
+      "connections": [
+        {
+          "target_id": "2",
+          "output_slot": 0,
+          "input_slot": 0
+        }
+      ]
+    },
+    {
+      "id": "2",
+      "action_type": "wait",
+      "params": {
+        "duration": 1
+      },
+      "x": 432,
+      "y": 186,
+      "connections": [
+        {
+          "target_id": "3",
+          "output_slot": 0,
+          "input_slot": 0
+        }
+      ]
+    },
+    {
+      "id": "5",
+      "action_type": "move",
+      "params": {
+        "x": 1200,
+        "y": 0,
+        "duration": 0.2,
+        "duration_random": 0,
+        "speed_factor": 1,
+        "speed_random": 0
+      },
+      "x": 1097,
+      "y": 306,
+      "connections": []
+    },
+    {
+      "id": "3",
+      "action_type": "if",
+      "params": {
+        "condition_type": "image_exists",
+        "image_path": "uploads\\3d42928a_account.png",
+        "target_node_id": "",
+        "expected_result": "true"
+      },
+      "x": 785,
+      "y": 140,
+      "connections": [
+        {
+          "target_id": "6",
+          "output_slot": 0,
+          "input_slot": 0
+        },
+        {
+          "target_id": "5",
+          "output_slot": 1,
+          "input_slot": 0
+        }
+      ]
+    },
+    {
+      "id": "6",
+      "action_type": "followimg",
+      "params": {
+        "image_path": "uploads\\cb65649f_account.png",
+        "confidence": 0.8
+      },
+      "x": 1119,
+      "y": 45,
+      "connections": []
+    }
+  ]
+}
