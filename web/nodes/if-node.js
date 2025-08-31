@@ -1,4 +1,4 @@
-// Logic Control Nodes - 逻辑控制节点
+// If Node - 条件节点
 (function(global) {
     var LiteGraph = global.LiteGraph;
 
@@ -99,46 +99,41 @@
         }
     };
 
-    LiteGraph.registerNodeType("autoclick/if", IfNode);
-    
-    // 通用的节点尺寸处理方法
-    const commonLogicNodeMethods = {
-        onResize: function(size) {
-            // 验证参数
-            if (!size || !Array.isArray(size) || size.length < 2) {
-                console.warn('Invalid size parameter in onResize:', size);
-                return;
-            }
-            
-            // 验证min_size存在
-            if (!this.min_size || !Array.isArray(this.min_size) || this.min_size.length < 2) {
-                console.warn('Node missing min_size property:', this.title);
-                return;
-            }
-            
-            // 确保最小内容区域
-            if (size[1] < this.min_size[1]) {
-                size[1] = this.min_size[1];
-            }
-            if (size[0] < this.min_size[0]) {
-                size[0] = this.min_size[0];
-            }
-            
-            // 检查最大尺寸限制
-            if (this.max_size && Array.isArray(this.max_size) && this.max_size.length >= 2) {
-                if (size[1] > this.max_size[1]) {
-                    size[1] = this.max_size[1];
-                }
-                if (size[0] > this.max_size[0]) {
-                    size[0] = this.max_size[0];
-                }
-            }
-            
-            this.setDirtyCanvas(true, true);
+    // Handle size changes
+    IfNode.prototype.onResize = function(size) {
+        // 验证参数
+        if (!size || !Array.isArray(size) || size.length < 2) {
+            console.warn('Invalid size parameter in onResize:', size);
+            return;
         }
+        
+        // 验证min_size存在
+        if (!this.min_size || !Array.isArray(this.min_size) || this.min_size.length < 2) {
+            console.warn('Node missing min_size property:', this.title);
+            return;
+        }
+        
+        // 确保最小内容区域
+        if (size[1] < this.min_size[1]) {
+            size[1] = this.min_size[1];
+        }
+        if (size[0] < this.min_size[0]) {
+            size[0] = this.min_size[0];
+        }
+        
+        // 检查最大尺寸限制
+        if (this.max_size && Array.isArray(this.max_size) && this.max_size.length >= 2) {
+            if (size[1] > this.max_size[1]) {
+                size[1] = this.max_size[1];
+            }
+            if (size[0] > this.max_size[0]) {
+                size[0] = this.max_size[0];
+            }
+        }
+        
+        this.setDirtyCanvas(true, true);
     };
-    
-    // 为所有逻辑节点类型应用通用方法
-    Object.assign(IfNode.prototype, commonLogicNodeMethods);
+
+    LiteGraph.registerNodeType("autoclick/if", IfNode);
 
 })(this);

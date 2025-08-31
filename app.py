@@ -299,51 +299,26 @@ def execute_nodes(nodes: List[Dict], loop: bool = False, speed: float = 1.0):
             condition_result = node.get('_condition_result', False)
             print(f"DEBUG: IF node {node['id']} branching - condition result: {condition_result}")
             
-            # First try to find connection nodes (advanced mode)
-            connection_nodes = [n for n in nodes if n.get('action_type') == 'connection' and 
-                              n.get('params', {}).get('source_id') == node['id']]
-            
-            if connection_nodes:
-                # Advanced mode: use connection nodes with specific output types
-                for conn_node in connection_nodes:
-                    conn_params = conn_node.get('params', {})
-                    output_type = conn_params.get('output_type', 'output')
-                    
-                    # Check if this connection should be followed based on condition result
-                    should_follow = False
-                    if output_type == 'true' and condition_result:
-                        should_follow = True
-                    elif output_type == 'false' and not condition_result:
-                        should_follow = True
-                    elif output_type == 'output':  # Default output for non-conditional connections
-                        should_follow = True
-                    
-                    if should_follow:
-                        target_id = conn_params.get('target_id')
-                        if target_id and not execution_state["should_stop"]:
-                            print(f"DEBUG: Following {output_type} branch to {target_id}")
-                            execute_node_recursive(target_id, visited.copy())
-            else:
-                # Simple mode: direct connections from IF node
-                connections = node.get("connections", [])
-                if connections:
-                    if condition_result:
-                        # TRUE condition: execute first connection
-                        target_id = connections[0]
-                        print(f"DEBUG: IF node {node['id']} - condition TRUE, executing first connection: {target_id}")
+            # Direct connections from IF node
+            connections = node.get("connections", [])
+            if connections:
+                if condition_result:
+                    # TRUE condition: execute first connection
+                    target_id = connections[0]
+                    print(f"DEBUG: IF node {node['id']} - condition TRUE, executing first connection: {target_id}")
+                    if not execution_state["should_stop"]:
+                        execute_node_recursive(target_id, visited.copy())
+                else:
+                    # FALSE condition: execute second connection if it exists
+                    if len(connections) > 1:
+                        target_id = connections[1]
+                        print(f"DEBUG: IF node {node['id']} - condition FALSE, executing second connection: {target_id}")
                         if not execution_state["should_stop"]:
                             execute_node_recursive(target_id, visited.copy())
                     else:
-                        # FALSE condition: execute second connection if it exists
-                        if len(connections) > 1:
-                            target_id = connections[1]
-                            print(f"DEBUG: IF node {node['id']} - condition FALSE, executing second connection: {target_id}")
-                            if not execution_state["should_stop"]:
-                                execute_node_recursive(target_id, visited.copy())
-                        else:
-                            print(f"DEBUG: IF node {node['id']} - condition FALSE, but no second connection available")
-                else:
-                    print(f"DEBUG: IF node {node['id']} - no connections found")
+                        print(f"DEBUG: IF node {node['id']} - condition FALSE, but no second connection available")
+            else:
+                print(f"DEBUG: IF node {node['id']} - no connections found")
         else:
             # For regular nodes, execute all connections
             for next_node_id in node.get("connections", []):
@@ -536,10 +511,6 @@ def execute_action(node: Dict[str, Any]):
             # Store the condition result for connection nodes to use
             node['_condition_result'] = condition_result
             
-        elif action_type == "connection":
-            # Connection nodes don't execute any actions - they just pass through
-            print(f"DEBUG: Connection node {node['id']} - passing through")
-            # The actual connection logic is handled in execute_node_recursive
                 
     except pyautogui.FailSafeException:
         print(f"PyAutoGUI failsafe triggered for action {action_type}. Move mouse away from screen corners.")

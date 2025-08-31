@@ -504,8 +504,7 @@ class CopilotNodeApp {
             'findimg': { image_path: '', confidence: 0.8 },
             'clickimg': { image_path: '', confidence: 0.8, x_random: 0, y_random: 0 },
             'followimg': { image_path: '', confidence: 0.8 },
-            'if': { condition_type: 'image_exists', image_path: '', target_node_id: '', expected_result: 'true' },
-            'connection': { source_id: '', target_id: '', output_type: 'output' }
+            'if': { condition_type: 'image_exists', image_path: '', target_node_id: '', expected_result: 'true' }
         };
 
         if (defaults[nodeType]) {

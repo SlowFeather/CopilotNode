@@ -24,7 +24,7 @@
             'logic': {
                 name: '逻辑控制',
                 description: '条件判断和流程控制节点',
-                types: ['if', 'connection']
+                types: ['if']
             }
         },
 
