@@ -24,12 +24,24 @@
 - **分辨率**: 1280x720或更高
 
 ### 2. 安装依赖
+安装conda环境：
+```bash
+# 1. 下载Miniconda安装脚本
+wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
+# 2. 运行安装脚本
+bash Miniconda3-latest-Linux-x86_64.sh
+# 3. 按照提示进行安装
+# 4. 重新加载bash配置
+source ~/.bashrc
+# 5. 验证安装
+conda --version
+```
 
 ```bash
-# 方法1：使用pip安装
+# 方法1：使用pip安装项目依赖
 pip install -r requirements.txt
 
-# 方法2：使用Python 3安装  
+# 方法2：使用Python 3安装  项目依赖
 pip3 install -r requirements.txt
 
 # 方法3：在虚拟环境中安装
