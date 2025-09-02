@@ -46,7 +46,7 @@
         // Display image info
         let imageLabel;
         if (this.properties.image_path && this.properties.image_path.length > 0) {
-            const filename = this.properties.image_path.split('/').pop();
+            const filename = this.properties.image_path.replace(/\\/g, '/').split('/').pop();
             const displayName = filename.length > 12 
                 ? filename.substring(0, 12) + "..."
                 : filename;

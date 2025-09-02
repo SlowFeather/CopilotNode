@@ -20,6 +20,13 @@ class CopilotNodeApp {
         this.startStatusPolling();
     }
 
+    // Helper method to get filename from path (handles both / and \ separators)
+    getFilenameFromPath(path) {
+        if (!path) return '';
+        // Replace backslashes with forward slashes, then split and get last part
+        return path.replace(/\\/g, '/').split('/').pop() || '';
+    }
+
     initializeCanvas() {
         const canvas = document.getElementById("graphCanvas");
         this.canvas = new LiteGraph.LGraphCanvas(canvas, this.graph);
@@ -373,6 +380,13 @@ class CopilotNodeApp {
         document.getElementById('closeModal').addEventListener('click', () => this.hideUploadModal());
         document.getElementById('fileInput').addEventListener('change', (e) => this.handleFileUpload(e));
         
+        // Tab controls
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                this.switchTab(e.target.dataset.tab);
+            });
+        });
+        
         // Upload area drag and drop
         this.initializeUploadArea();
 
@@ -631,6 +645,12 @@ class CopilotNodeApp {
     showUploadModal(node) {
         if (node) {
             this.currentUploadNode = node;
+            this.selectedImagePath = null;
+            
+            // Reset tabs to show existing images first
+            this.switchTab('existing');
+            this.loadExistingImages();
+            
             document.getElementById('uploadModal').style.display = 'flex';
         }
     }
@@ -638,6 +658,7 @@ class CopilotNodeApp {
     hideUploadModal() {
         document.getElementById('uploadModal').style.display = 'none';
         this.currentUploadNode = null;
+        this.selectedImagePath = null;
         this.resetUploadArea();
     }
 
@@ -651,6 +672,108 @@ class CopilotNodeApp {
         if (file) {
             this.uploadFile(file);
         }
+    }
+
+    switchTab(tabName) {
+        // Update tab buttons
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.classList.remove('active');
+            if (btn.dataset.tab === tabName) {
+                btn.classList.add('active');
+            }
+        });
+
+        // Show/hide tab content
+        document.getElementById('existingTab').style.display = tabName === 'existing' ? 'block' : 'none';
+        document.getElementById('uploadTab').style.display = tabName === 'upload' ? 'block' : 'none';
+    }
+
+    async loadExistingImages() {
+        const container = document.getElementById('existingImages');
+        container.innerHTML = '<div class="loading-text">加载中...</div>';
+
+        try {
+            const response = await fetch('/api/images');
+            if (response.ok) {
+                const images = await response.json();
+                this.displayExistingImages(images);
+            } else {
+                container.innerHTML = '<div class="no-images">加载图片失败</div>';
+            }
+        } catch (error) {
+            console.error('Load images error:', error);
+            container.innerHTML = '<div class="no-images">加载图片失败</div>';
+        }
+    }
+
+    displayExistingImages(images) {
+        const container = document.getElementById('existingImages');
+        
+        if (images.length === 0) {
+            container.innerHTML = '<div class="no-images">暂无上传的图片</div>';
+            return;
+        }
+
+        const imageGrid = images.map(image => {
+            const displayName = image.filename.length > 15 
+                ? image.filename.substring(0, 15) + '...'
+                : image.filename;
+            
+            const sizeKB = Math.round(image.size / 1024);
+            
+            return `
+                <div class="image-item" data-path="${image.path}" onclick="app.selectExistingImage('${image.path}', this)">
+                    <img class="image-preview" src="/api/images/${image.filename}" alt="${image.filename}" 
+                         onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iODAiIGhlaWdodD0iODAiIHZpZXdCb3g9IjAgMCA4MCA4MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjgwIiBoZWlnaHQ9IjgwIiBmaWxsPSIjMzMzIi8+Cjx0ZXh0IHg9IjQwIiB5PSI0NSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzk5OSI+Pz88L3RleHQ+Cjwvc3ZnPg=='" />
+                    <div class="image-name">${displayName}</div>
+                    <div class="image-size">${sizeKB} KB</div>
+                </div>
+            `;
+        }).join('');
+
+        container.innerHTML = `
+            ${imageGrid}
+            <button class="select-button" onclick="app.useSelectedImage()" disabled id="selectBtn">
+                选择图片
+            </button>
+        `;
+    }
+
+    selectExistingImage(imagePath, element) {
+        // Remove previous selection
+        document.querySelectorAll('.image-item').forEach(item => {
+            item.classList.remove('selected');
+        });
+
+        // Select current image
+        element.classList.add('selected');
+        this.selectedImagePath = imagePath;
+
+        // Enable select button
+        document.getElementById('selectBtn').disabled = false;
+    }
+
+    useSelectedImage() {
+        if (!this.selectedImagePath || !this.currentUploadNode) return;
+
+        // Store the selected path before modal is closed
+        const selectedPath = this.selectedImagePath;
+
+        // Update node property
+        this.currentUploadNode.properties.image_path = selectedPath;
+        
+        // Refresh properties panel
+        this.updatePropertiesPanel(this.currentUploadNode);
+        
+        // Force node redraw to show updated image info
+        this.currentUploadNode.setDirtyCanvas(true, true);
+        this.canvas.setDirty(true, true);
+        
+        // Close modal
+        this.hideUploadModal();
+        
+        const filename = this.getFilenameFromPath(selectedPath);
+        alert(`已选择图像: ${filename}`);
     }
 
     async uploadFile(file) {
@@ -691,7 +814,11 @@ class CopilotNodeApp {
                 // Close modal
                 this.hideUploadModal();
                 
-                alert(`图像上传成功: ${result.filename}`);
+                if (result.duplicate) {
+                    alert(`${result.message}: ${result.filename}`);
+                } else {
+                    alert(`图像上传成功: ${result.filename}`);
+                }
             } else {
                 throw new Error('Upload failed');
             }
