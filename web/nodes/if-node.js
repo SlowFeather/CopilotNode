@@ -61,7 +61,17 @@
                 const displayName = filename.length > 12 
                     ? filename.substring(0, 12) + "..."
                     : filename;
-                ctx.fillText(`图像: ${displayName}`, 10, y_offset + 15);
+                
+                // Check if this is a missing image (set by app when image is deleted)
+                if (this.flags && this.flags.missingImage) {
+                    ctx.fillStyle = "#ff6b6b";
+                    ctx.fillText(`❌ ${displayName}`, 10, y_offset + 15);
+                    ctx.font = "10px Arial";
+                    ctx.fillText("图像不存在", 10, y_offset + 27);
+                    ctx.font = "12px Arial";
+                } else {
+                    ctx.fillText(`图像: ${displayName}`, 10, y_offset + 15);
+                }
             } else {
                 ctx.fillStyle = "#aaaaaa";
                 ctx.fillText("未上传图像", 10, y_offset + 15);

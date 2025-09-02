@@ -65,33 +65,50 @@ class UploadService:
 
     @staticmethod
     def upload_image(file: FileStorage) -> Dict[str, Any]:
-        """Upload image with duplicate detection"""
+        """Upload image with duplicate detection, preserving original filename when possible"""
         if not file or file.filename == '':
             raise ValueError("No file selected")
         
         os.makedirs(UPLOADS_DIR, exist_ok=True)
         
-        # Calculate file hash to check for duplicates
-        file_hash = UploadService._calculate_file_hash(file)
-        existing_filename = UploadService._find_existing_file(file_hash, file.filename)
+        original_filename = file.filename
+        original_filepath = os.path.join(UPLOADS_DIR, original_filename)
         
-        if existing_filename:
-            # File already exists, return existing file info
-            existing_filepath = os.path.join(UPLOADS_DIR, existing_filename)
-            # Normalize path separators to forward slashes for cross-platform compatibility
-            normalized_path = existing_filepath.replace(os.sep, '/')
-            return {
-                "filename": existing_filename,
-                "path": normalized_path,
-                "duplicate": True,
-                "message": "File already exists, using existing file"
-            }
+        # Check if file with original name already exists
+        if os.path.exists(original_filepath):
+            # File with same name exists, check if it's the same content
+            file_hash = UploadService._calculate_file_hash(file)
+            
+            # Calculate hash of existing file
+            try:
+                with open(original_filepath, 'rb') as existing_file:
+                    existing_hash = hashlib.md5()
+                    while chunk := existing_file.read(8192):
+                        existing_hash.update(chunk)
+                    
+                    if existing_hash.hexdigest() == file_hash:
+                        # Same file content, return existing file
+                        normalized_path = original_filepath.replace(os.sep, '/')
+                        return {
+                            "filename": original_filename,
+                            "path": normalized_path,
+                            "duplicate": True,
+                            "message": "File already exists, using existing file"
+                        }
+            except OSError:
+                pass  # If we can't read existing file, proceed with rename
+            
+            # Different content, need to rename with UUID prefix
+            filename = f"{uuid.uuid4().hex[:8]}_{original_filename}"
+            filepath = os.path.join(UPLOADS_DIR, filename)
+        else:
+            # Original filename is available, use it directly
+            filename = original_filename
+            filepath = original_filepath
         
-        # Generate new filename and save
-        filename = f"{uuid.uuid4().hex[:8]}_{file.filename}"
-        filepath = os.path.join(UPLOADS_DIR, filename)
-        
+        # Save the file
         file.save(filepath)
+        
         # Normalize path separators to forward slashes for cross-platform compatibility
         normalized_path = filepath.replace(os.sep, '/')
         return {
@@ -100,3 +117,30 @@ class UploadService:
             "duplicate": False,
             "message": "File uploaded successfully"
         }
+
+    @staticmethod
+    def delete_image(filename: str) -> Dict[str, Any]:
+        """Delete uploaded image file"""
+        if not filename:
+            raise ValueError("No filename provided")
+        
+        # Security check - ensure filename doesn't contain path separators
+        if '/' in filename or '\\' in filename or '..' in filename:
+            raise ValueError("Invalid filename")
+        
+        filepath = os.path.join(UPLOADS_DIR, filename)
+        
+        if not os.path.exists(filepath):
+            raise FileNotFoundError("Image file not found")
+        
+        if not os.path.isfile(filepath):
+            raise ValueError("Not a valid file")
+        
+        try:
+            os.remove(filepath)
+            return {
+                "filename": filename,
+                "message": "Image deleted successfully"
+            }
+        except OSError as e:
+            raise Exception(f"Failed to delete file: {str(e)}")

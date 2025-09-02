@@ -46,19 +46,38 @@
         
         const y_offset = 45;
         
-        // Display image info
+        // Display image info with missing image indicator
         let imageLabel;
+        let isImageMissing = false;
+        
         if (this.properties.image_path && this.properties.image_path.length > 0) {
             const filename = this.properties.image_path.replace(/\\/g, '/').split('/').pop();
             const displayName = filename.length > 12 
                 ? filename.substring(0, 12) + "..."
                 : filename;
-            imageLabel = `图像: ${displayName}`;
+            
+            // Check if this is a missing image (set by app when image is deleted)
+            if (this.flags && this.flags.missingImage) {
+                ctx.fillStyle = "#ff6b6b";
+                imageLabel = `❌ ${displayName}`;
+                isImageMissing = true;
+            } else {
+                imageLabel = `图像: ${displayName}`;
+            }
         } else {
             ctx.fillStyle = "#aaaaaa";
             imageLabel = "未上传图像";
         }
         ctx.fillText(imageLabel, 10, y_offset);
+        
+        // Add warning text for missing images
+        if (isImageMissing) {
+            ctx.fillStyle = "#ff6b6b";
+            ctx.font = "10px Arial";
+            ctx.fillText("图像不存在", 10, y_offset + 12);
+            ctx.font = "12px Arial";
+        }
+        
         ctx.fillStyle = "#ffffff";
         
         // Display confidence
@@ -162,19 +181,38 @@
         
         const y_offset = 45;
         
-        // Display image info
+        // Display image info with missing image indicator
         let imageLabel;
+        let isImageMissing = false;
+        
         if (this.properties.image_path && this.properties.image_path.length > 0) {
             const filename = this.properties.image_path.replace(/\\/g, '/').split('/').pop();
             const displayName = filename.length > 12 
                 ? filename.substring(0, 12) + "..."
                 : filename;
-            imageLabel = `图像: ${displayName}`;
+            
+            // Check if this is a missing image (set by app when image is deleted)
+            if (this.flags && this.flags.missingImage) {
+                ctx.fillStyle = "#ff6b6b";
+                imageLabel = `❌ ${displayName}`;
+                isImageMissing = true;
+            } else {
+                imageLabel = `图像: ${displayName}`;
+            }
         } else {
             ctx.fillStyle = "#aaaaaa";
             imageLabel = "未上传图像";
         }
         ctx.fillText(imageLabel, 10, y_offset);
+        
+        // Add warning text for missing images
+        if (isImageMissing) {
+            ctx.fillStyle = "#ff6b6b";
+            ctx.font = "10px Arial";
+            ctx.fillText("图像不存在", 10, y_offset + 12);
+            ctx.font = "12px Arial";
+        }
+        
         ctx.fillStyle = "#ffffff";
         
         // Display confidence
@@ -282,19 +320,38 @@
         
         const y_offset = 45;
         
-        // Display image info
+        // Display image info with missing image indicator
         let imageLabel;
+        let isImageMissing = false;
+        
         if (this.properties.image_path && this.properties.image_path.length > 0) {
             const filename = this.properties.image_path.replace(/\\/g, '/').split('/').pop();
             const displayName = filename.length > 12 
                 ? filename.substring(0, 12) + "..."
                 : filename;
-            imageLabel = `图像: ${displayName}`;
+            
+            // Check if this is a missing image (set by app when image is deleted)
+            if (this.flags && this.flags.missingImage) {
+                ctx.fillStyle = "#ff6b6b";
+                imageLabel = `❌ ${displayName}`;
+                isImageMissing = true;
+            } else {
+                imageLabel = `图像: ${displayName}`;
+            }
         } else {
             ctx.fillStyle = "#aaaaaa";
             imageLabel = "未上传图像";
         }
         ctx.fillText(imageLabel, 10, y_offset);
+        
+        // Add warning text for missing images
+        if (isImageMissing) {
+            ctx.fillStyle = "#ff6b6b";
+            ctx.font = "10px Arial";
+            ctx.fillText("图像不存在", 10, y_offset + 12);
+            ctx.font = "12px Arial";
+        }
+        
         ctx.fillStyle = "#ffffff";
         
         // Display confidence

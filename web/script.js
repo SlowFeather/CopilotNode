@@ -27,6 +27,21 @@ class CopilotNodeApp {
         return path.replace(/\\/g, '/').split('/').pop() || '';
     }
 
+    // Check if image exists by testing if it can be loaded
+    async checkImageExists(imagePath) {
+        if (!imagePath) return false;
+        
+        const filename = this.getFilenameFromPath(imagePath);
+        if (!filename) return false;
+        
+        try {
+            const response = await fetch(`/api/images/${filename}`, { method: 'HEAD' });
+            return response.ok;
+        } catch (error) {
+            return false;
+        }
+    }
+
     initializeCanvas() {
         const canvas = document.getElementById("graphCanvas");
         this.canvas = new LiteGraph.LGraphCanvas(canvas, this.graph);
@@ -722,11 +737,19 @@ class CopilotNodeApp {
             const sizeKB = Math.round(image.size / 1024);
             
             return `
-                <div class="image-item" data-path="${image.path}" onclick="app.selectExistingImage('${image.path}', this)">
-                    <img class="image-preview" src="/api/images/${image.filename}" alt="${image.filename}" 
-                         onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iODAiIGhlaWdodD0iODAiIHZpZXdCb3g9IjAgMCA4MCA4MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjgwIiBoZWlnaHQ9IjgwIiBmaWxsPSIjMzMzIi8+Cjx0ZXh0IHg9IjQwIiB5PSI0NSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzk5OSI+Pz88L3RleHQ+Cjwvc3ZnPg=='" />
-                    <div class="image-name">${displayName}</div>
-                    <div class="image-size">${sizeKB} KB</div>
+                <div class="image-item" data-path="${image.path}" data-filename="${image.filename}">
+                    <div class="image-item-content" onclick="app.selectExistingImage('${image.path}', this.parentElement)">
+                        <img class="image-preview" src="/api/images/${image.filename}" alt="${image.filename}" 
+                             onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iODAiIGhlaWdodD0iODAiIHZpZXdCb3g9IjAgMCA4MCA4MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjgwIiBoZWlnaHQ9IjgwIiBmaWxsPSIjMzMzIi8+Cjx0ZXh0IHg9IjQwIiB5PSI0NSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzk5OSI+Pz88L3RleHQ+Cjwvc3ZnPg=='" />
+                        <div class="image-name">${displayName}</div>
+                        <div class="image-size">${sizeKB} KB</div>
+                    </div>
+                    <button class="delete-image-btn" onclick="app.confirmDeleteImage('${image.filename}', event)" title="删除图片">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="3,6 5,6 21,6"></polyline>
+                            <path d="m19,6v14a2,2 0 0,1 -2,2H7a2,2 0 0,1 -2,-2V6m3,0V4a2,2 0 0,1 2,-2h4a2,2 0 0,1 2,2v2"></path>
+                        </svg>
+                    </button>
                 </div>
             `;
         }).join('');
@@ -762,6 +785,11 @@ class CopilotNodeApp {
         // Update node property
         this.currentUploadNode.properties.image_path = selectedPath;
         
+        // Clear missing image flag if it was set
+        if (this.currentUploadNode.flags && this.currentUploadNode.flags.missingImage) {
+            this.currentUploadNode.flags.missingImage = false;
+        }
+        
         // Refresh properties panel
         this.updatePropertiesPanel(this.currentUploadNode);
         
@@ -774,6 +802,70 @@ class CopilotNodeApp {
         
         const filename = this.getFilenameFromPath(selectedPath);
         alert(`已选择图像: ${filename}`);
+    }
+
+    confirmDeleteImage(filename, event) {
+        // Prevent triggering parent click events
+        event.stopPropagation();
+        
+        if (confirm(`确定要删除图片 "${filename}" 吗？\n\n注意：删除后，所有引用此图片的节点将失效。`)) {
+            this.deleteImage(filename);
+        }
+    }
+
+    async deleteImage(filename) {
+        try {
+            const response = await fetch(`/api/images/${filename}`, {
+                method: 'DELETE'
+            });
+
+            if (response.ok) {
+                alert(`图片删除成功: ${filename}`);
+                
+                // Mark all nodes with this image path as having missing images
+                this.markNodesWithMissingImage(filename);
+                
+                // Refresh the images list
+                this.loadExistingImages();
+                
+                // Reset selection if the deleted image was selected
+                if (this.selectedImagePath && this.selectedImagePath.includes(filename)) {
+                    this.selectedImagePath = null;
+                    document.getElementById('selectBtn').disabled = true;
+                }
+                
+                // Mark all canvas as dirty to refresh node displays
+                this.canvas.setDirty(true, true);
+                
+            } else {
+                const error = await response.json();
+                alert(`删除失败: ${error.error || '未知错误'}`);
+            }
+        } catch (error) {
+            console.error('Delete image error:', error);
+            alert('删除图片时发生错误');
+        }
+    }
+
+    markNodesWithMissingImage(deletedFilename) {
+        // Check all nodes in the graph for references to the deleted image
+        if (!this.graph || !this.graph._nodes) {
+            console.warn('Graph or nodes not available');
+            return;
+        }
+        
+        this.graph._nodes.forEach(node => {
+            if (node.properties && node.properties.image_path) {
+                const filename = this.getFilenameFromPath(node.properties.image_path);
+                if (filename === deletedFilename) {
+                    // Mark this node as having a missing image
+                    if (!node.flags) node.flags = {};
+                    node.flags.missingImage = true;
+                    node.setDirtyCanvas(true, true);
+                    console.log(`Marked node "${node.title}" as having missing image: ${deletedFilename}`);
+                }
+            }
+        });
     }
 
     async uploadFile(file) {
@@ -803,6 +895,11 @@ class CopilotNodeApp {
                 
                 // Update node property
                 this.currentUploadNode.properties.image_path = result.path;
+                
+                // Clear missing image flag if it was set
+                if (this.currentUploadNode.flags && this.currentUploadNode.flags.missingImage) {
+                    this.currentUploadNode.flags.missingImage = false;
+                }
                 
                 // Refresh properties panel
                 this.updatePropertiesPanel(this.currentUploadNode);

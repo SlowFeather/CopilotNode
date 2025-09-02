@@ -12,31 +12,47 @@
     <div class="app-container">
         <!-- Header -->
         <div class="header">
-            <div class="header-left">
+            <!-- Brand Section -->
+            <div class="header-brand">
                 <h1>CopilotNode Web</h1>
-                <div class="project-controls">
-                    <select id="projectSelect" class="project-select">
-                        <option value="">选择项目...</option>
-                    </select>
-                    <button id="loadProject" class="btn btn-secondary">加载</button>
-                    <button id="saveProject" class="btn btn-secondary">保存</button>
-                </div>
             </div>
-            <div class="header-right">
-                <div class="execution-controls">
-                    <button id="playBtn" class="btn btn-primary">▶ 播放</button>
-                    <button id="stopBtn" class="btn btn-danger" disabled>⏹ 停止</button>
-                    <label class="loop-control">
-                        <input type="checkbox" id="loopCheck"> 循环播放
-                    </label>
-                    <div class="speed-control">
-                        <label>速度:</label>
-                        <input type="range" id="speedSlider" min="0.5" max="3" step="0.1" value="1">
-                        <span id="speedValue">1.0x</span>
+
+            <!-- Controls Section -->
+            <div class="header-controls">
+                <!-- Project Controls -->
+                <div class="control-group project-group">
+                    <div class="group-label">项目</div>
+                    <div class="control-items">
+                        <select id="projectSelect" class="project-select">
+                            <option value="">选择项目...</option>
+                        </select>
+                        <button id="loadProject" class="btn btn-secondary btn-small">加载</button>
+                        <button id="saveProject" class="btn btn-secondary btn-small">保存</button>
                     </div>
                 </div>
-                
-                <!-- Compact Status Panel -->
+
+                <!-- Execution Controls -->
+                <div class="control-group execution-group">
+                    <div class="group-label">执行</div>
+                    <div class="control-items">
+                        <button id="playBtn" class="btn btn-primary">▶ 播放</button>
+                        <button id="stopBtn" class="btn btn-danger" disabled>⏹ 停止</button>
+                        <div class="execution-options">
+                            <label class="loop-control">
+                                <input type="checkbox" id="loopCheck"> 循环
+                            </label>
+                            <div class="speed-control">
+                                <label>速度:</label>
+                                <input type="range" id="speedSlider" min="0.5" max="3" step="0.1" value="1">
+                                <span id="speedValue">1.0x</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Status Section -->
+            <div class="header-status">
                 <div class="compact-status-panel" id="compactStatusPanel">
                     <div class="status-item-compact">
                         <span class="status-label-compact">状态:</span>

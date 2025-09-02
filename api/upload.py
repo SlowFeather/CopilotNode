@@ -35,3 +35,14 @@ def serve_image(filename):
         return send_from_directory(UPLOADS_DIR, filename)
     except FileNotFoundError:
         return jsonify({"error": "Image not found"}), 404
+
+@upload_bp.route('/images/<filename>', methods=['DELETE'])
+def delete_image(filename):
+    """Delete uploaded image file"""
+    try:
+        result = upload_service.delete_image(filename)
+        return jsonify(result)
+    except FileNotFoundError:
+        return jsonify({"error": "Image not found"}), 404
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
