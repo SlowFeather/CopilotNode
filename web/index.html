@@ -112,27 +112,43 @@
         </div>
     </div>
 
-    <!-- File Upload Modal -->
+    <!-- Image Selection Modal -->
     <div id="uploadModal" class="modal" style="display: none;">
         <div class="modal-content">
             <div class="modal-header">
-                <h3>上传图像文件</h3>
+                <h3>选择图像文件</h3>
                 <button id="closeModal" class="close-btn">&times;</button>
             </div>
             <div class="modal-body">
-                <div class="upload-area" id="uploadArea">
-                    <div class="upload-text">
-                        <i>📁</i>
-                        <p>点击选择文件或拖拽文件到此处</p>
-                        <p class="upload-hint">支持 PNG, JPG, JPEG 格式</p>
-                    </div>
-                    <input type="file" id="fileInput" accept="image/*" style="display: none;">
+                <!-- Tab buttons -->
+                <div class="tab-buttons">
+                    <button class="tab-btn active" data-tab="existing">选择已上传图片</button>
+                    <button class="tab-btn" data-tab="upload">上传新图片</button>
                 </div>
-                <div class="upload-progress" id="uploadProgress" style="display: none;">
-                    <div class="progress-bar">
-                        <div id="uploadProgressBar" class="progress-fill"></div>
+                
+                <!-- Existing images tab -->
+                <div class="tab-content" id="existingTab">
+                    <div class="existing-images" id="existingImages">
+                        <div class="loading-text">加载中...</div>
                     </div>
-                    <div id="uploadStatus">上传中...</div>
+                </div>
+                
+                <!-- Upload tab -->
+                <div class="tab-content" id="uploadTab" style="display: none;">
+                    <div class="upload-area" id="uploadArea">
+                        <div class="upload-text">
+                            <i>📁</i>
+                            <p>点击选择文件或拖拽文件到此处</p>
+                            <p class="upload-hint">支持 PNG, JPG, JPEG 格式</p>
+                        </div>
+                        <input type="file" id="fileInput" accept="image/*" style="display: none;">
+                    </div>
+                    <div class="upload-progress" id="uploadProgress" style="display: none;">
+                        <div class="progress-bar">
+                            <div id="uploadProgressBar" class="progress-fill"></div>
+                        </div>
+                        <div id="uploadStatus">上传中...</div>
+                    </div>
                 </div>
             </div>
         </div>
