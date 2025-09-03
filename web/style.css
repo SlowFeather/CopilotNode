@@ -150,6 +150,12 @@ body {
     box-shadow: 0 4px 12px rgba(74, 144, 226, 0.15);
 }
 
+.project-select option {
+    background-color: var(--surface-color);
+    color: var(--text-color);
+    padding: 8px;
+}
+
 /* Small Button Variant */
 .btn-small {
     padding: 6px 12px;
