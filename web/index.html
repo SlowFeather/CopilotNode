@@ -26,6 +26,7 @@
                         <select id="projectSelect" class="project-select">
                             <option value="">选择项目...</option>
                         </select>
+                        <button id="createProjectBtn" class="btn btn-success btn-small">新建</button>
                         <button id="loadProject" class="btn btn-secondary btn-small">加载</button>
                         <button id="saveProject" class="btn btn-secondary btn-small">保存</button>
                     </div>
@@ -78,11 +79,46 @@
 
         <!-- Main Content -->
         <div class="main-content">
+            <!-- Drawing Manager Panel -->
+            <div class="drawing-panel">
+                <div class="drawing-panel-header">
+                    <h3>画图管理器</h3>
+                    <button id="createDrawingBtn" class="btn btn-primary btn-small" title="创建新画图">+</button>
+                </div>
+                
+                <div class="drawing-list">
+                    <div class="loading-drawings">加载中...</div>
+                </div>
+                
+                <!-- Drawing controls section removed - boundary moved to properties panel -->
+            </div>
+
             <!-- Node Panel -->
             <div class="node-panel">
                 <h3>节点面板</h3>
-                <div class="multi-select-tips">
+                
+                <div id="currentDrawingIndicator" class="current-drawing-indicator" style="display: none;">
+                    <div class="indicator-content">
+                        <span class="indicator-label">当前画图:</span>
+                        <span id="currentDrawingName" class="indicator-value">无</span>
+                    </div>
+                </div>
+                
+                <div id="noDrawingTips" class="multi-select-tips warning-tips">
                     <small>
+                        <strong>⚠️ 请先选择画图:</strong><br>
+                        • 在左侧画图管理器中选择一个画图<br>
+                        • 或点击 + 号创建新的画图<br>
+                        • 选择画图后才能添加操作节点
+                    </small>
+                </div>
+                
+                <div id="drawingSelectedTips" class="multi-select-tips" style="display: none;">
+                    <small>
+                        <strong>使用说明:</strong><br>
+                        • 拖拽节点到中间画布区域<br>
+                        • 连接节点创建工作流<br>
+                        • 节点会自动保存到当前画图<br>
                         <strong>多选提示:</strong><br>
                         • Ctrl+点击: 切换选择<br>
                         • Ctrl+拖拽: 框选<br>
@@ -122,7 +158,40 @@
             <div class="properties-panel">
                 <h3>属性面板</h3>
                 <div id="propertiesContent" class="properties-content">
-                    <div class="no-selection">请选择一个节点</div>
+                    <div class="no-selection">请选择一个节点或画图</div>
+                </div>
+                
+                <!-- Drawing Boundary Settings -->
+                <div id="drawingBoundarySection" class="drawing-boundary-section" style="display: none;">
+                    <div class="properties-divider"></div>
+                    <h4 class="boundary-title">画图操作边界</h4>
+                    <div class="boundary-description">
+                        <small>设置此画图中所有节点的操作范围</small>
+                    </div>
+                    <div class="boundary-controls">
+                        <div class="boundary-inputs">
+                            <div class="input-group">
+                                <label class="boundary-label">X坐标</label>
+                                <input type="number" id="boundaryX" class="boundary-input" placeholder="0">
+                            </div>
+                            <div class="input-group">
+                                <label class="boundary-label">Y坐标</label>
+                                <input type="number" id="boundaryY" class="boundary-input" placeholder="0">
+                            </div>
+                            <div class="input-group">
+                                <label class="boundary-label">宽度</label>
+                                <input type="number" id="boundaryWidth" class="boundary-input" placeholder="1920">
+                            </div>
+                            <div class="input-group">
+                                <label class="boundary-label">高度</label>
+                                <input type="number" id="boundaryHeight" class="boundary-input" placeholder="1080">
+                            </div>
+                        </div>
+                        <div class="boundary-buttons">
+                            <button id="setBoundaryBtn" class="btn btn-primary btn-small">应用边界</button>
+                            <button id="previewBoundaryBtn" class="btn btn-secondary btn-small">预览边界</button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -170,6 +239,64 @@
         </div>
     </div>
 
+    <!-- Create Drawing Modal -->
+    <div id="createDrawingModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>创建新画图</h3>
+                <button id="closeCreateDrawingModal" class="close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="property-group">
+                    <label class="property-label">画图名称</label>
+                    <input type="text" id="newDrawingName" class="property-input" placeholder="输入画图名称">
+                </div>
+                <div class="property-group">
+                    <label class="property-label">操作边界</label>
+                    <div class="property-row">
+                        <input type="number" id="newDrawingX" class="property-input" placeholder="X坐标" value="0">
+                        <input type="number" id="newDrawingY" class="property-input" placeholder="Y坐标" value="0">
+                    </div>
+                    <div class="property-row">
+                        <input type="number" id="newDrawingWidth" class="property-input" placeholder="宽度" value="1920">
+                        <input type="number" id="newDrawingHeight" class="property-input" placeholder="高度" value="1080">
+                    </div>
+                </div>
+                <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px;">
+                    <button id="cancelCreateDrawing" class="btn btn-secondary">取消</button>
+                    <button id="confirmCreateDrawing" class="btn btn-primary">创建</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create Project Modal -->
+    <div id="createProjectModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>创建新项目</h3>
+                <button id="closeCreateProjectModal" class="close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="property-group">
+                    <label class="property-label">项目名称</label>
+                    <input type="text" id="newProjectName" class="property-input" placeholder="输入项目名称">
+                </div>
+                <div class="property-group">
+                    <label class="property-label">项目描述</label>
+                    <input type="text" id="newProjectDescription" class="property-input" placeholder="项目描述（可选）">
+                </div>
+                <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px;">
+                    <button id="cancelCreateProject" class="btn btn-secondary">取消</button>
+                    <button id="confirmCreateProject" class="btn btn-primary">创建</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Boundary Preview Overlay -->
+    <div id="boundaryPreview" class="boundary-preview" style="display: none;"></div>
+
     <!-- Scripts -->
     <script src="litegraph.js-release/src/litegraph.js"></script>
     <script src="litegraph.js-release/src/litegraph-editor.js"></script>
@@ -180,7 +307,27 @@
     <script src="nodes/logic-nodes.js"></script>
     <script src="nodes/index.js"></script>
     
+    <!-- Drawing Manager Script - Load early -->
+    <script src="drawing-manager.js"></script>
+    
+    <!-- Initialize Drawing Manager immediately after loading -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('DOM Content Loaded');
+            console.log('DrawingManager available:', typeof DrawingManager !== 'undefined');
+            
+            // Initialize drawing manager immediately
+            if (typeof DrawingManager !== 'undefined') {
+                window.drawingManager = new DrawingManager();
+                console.log('Drawing manager initialized in DOM ready');
+            } else {
+                console.error('DrawingManager not available in DOM ready');
+            }
+        });
+    </script>
+    
     <!-- Main Application Script -->
     <script src="script.js"></script>
+    
 </body>
 </html>

@@ -77,7 +77,7 @@
             setTimeout(() => global.CopilotNodeNodes.validateNodeTypes(), 100);
         });
     } else {
-        setTimeout(() => global.AutoClickNodes.validateNodeTypes(), 100);
+        setTimeout(() => global.CopilotNodeNodes.validateNodeTypes(), 100);
     }
 
 })(this);

@@ -108,3 +108,62 @@ class ImageRecognition:
                 result['bottom_right'][1]
             )
         return None
+    
+    def find_image_in_region(self, target_image_path, region_bbox=None, threshold=0.8):
+        """在指定区域内查找图像
+        
+        Args:
+            target_image_path: 目标图像路径
+            region_bbox: 搜索区域边界框 (x, y, width, height)，None表示全屏
+            threshold: 匹配阈值
+        
+        Returns:
+            查找结果字典，包含found, confidence, position等信息
+        """
+        if region_bbox is None:
+            # 如果没有指定区域，使用原有的全屏搜索
+            return self.find_image_on_screen(target_image_path, threshold)
+        
+        x, y, width, height = region_bbox
+        
+        # 截取指定区域的屏幕截图
+        region_screenshot = ImageGrab.grab(bbox=(x, y, x + width, y + height))
+        region_screenshot_path = "region_screenshot.png"
+        region_screenshot.save(region_screenshot_path)
+        
+        try:
+            # 加载目标图像和区域截图
+            target = self.load_target_image(target_image_path)
+            region = cv2.imread(region_screenshot_path, cv2.IMREAD_GRAYSCALE)
+            
+            theight, twidth = target.shape[:2]
+            
+            # 进行模板匹配
+            res = cv2.matchTemplate(region, target, cv2.TM_CCOEFF_NORMED)
+            min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(res)
+            
+            if max_val >= threshold:
+                # 找到匹配，计算在全屏坐标系中的位置
+                top_left_region = max_loc
+                top_left_screen = (top_left_region[0] + x, top_left_region[1] + y)
+                center_x = top_left_screen[0] + twidth // 2
+                center_y = top_left_screen[1] + theight // 2
+                
+                return {
+                    'found': True,
+                    'confidence': max_val,
+                    'position': (center_x, center_y),
+                    'top_left': top_left_screen,
+                    'bottom_right': (top_left_screen[0] + twidth, top_left_screen[1] + theight),
+                    'search_region': region_bbox
+                }
+            else:
+                return {
+                    'found': False, 
+                    'confidence': max_val,
+                    'search_region': region_bbox
+                }
+        finally:
+            # 清理临时截图文件
+            if os.path.exists(region_screenshot_path):
+                os.remove(region_screenshot_path)

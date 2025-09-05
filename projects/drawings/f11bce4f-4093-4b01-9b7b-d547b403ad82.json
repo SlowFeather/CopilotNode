@@ -1,0 +1,59 @@
+{
+  "id": "f11bce4f-4093-4b01-9b7b-d547b403ad82",
+  "project_id": "007b1ceb-1f2f-44fc-bdf6-0a14dd0fdbef",
+  "name": "2",
+  "nodes": [
+    {
+      "id": "1",
+      "action_type": "move",
+      "title": "移动",
+      "pos": [
+        220,
+        178
+      ],
+      "size": [
+        210,
+        130
+      ],
+      "params": {
+        "x": 333,
+        "y": 333,
+        "duration": 0.2,
+        "duration_random": 0,
+        "speed_factor": 1,
+        "speed_random": 0
+      },
+      "connections": [
+        "2"
+      ]
+    },
+    {
+      "id": "2",
+      "action_type": "followimg",
+      "title": "跟随图像",
+      "pos": [
+        621,
+        158
+      ],
+      "size": [
+        160,
+        120
+      ],
+      "params": {
+        "image_path": "uploads/20e9066b_account.png",
+        "confidence": 0.8
+      },
+      "connections": []
+    }
+  ],
+  "boundary": {
+    "x": 0,
+    "y": 0,
+    "width": 1920,
+    "height": 1080
+  },
+  "created_at": "2025-09-05T11:34:48.883493",
+  "last_modified": "2025-09-05T11:38:01.968951",
+  "execution_history": [],
+  "last_executed": "2025-09-05T11:35:50.994866"
+}

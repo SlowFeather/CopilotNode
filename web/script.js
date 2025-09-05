@@ -73,6 +73,19 @@ class CopilotNodeApp {
             this.updatePropertiesPanel(null);
         };
 
+        // Setup auto-save hooks for graph changes
+        this.graph.onNodeAdded = (node) => {
+            if (window.drawingManager && window.drawingManager._triggerDelayedSave) {
+                window.drawingManager._triggerDelayedSave();
+            }
+        };
+
+        this.graph.onNodeRemoved = (node) => {
+            if (window.drawingManager && window.drawingManager._triggerDelayedSave) {
+                window.drawingManager._triggerDelayedSave();
+            }
+        };
+
         // Enhanced mouse event handling for multi-selection
         this.canvas.onMouseDown = (e, localPos) => {
             // 验证和修复 localPos 参数
@@ -374,6 +387,7 @@ class CopilotNodeApp {
 
     initializeEventListeners() {
         // Project controls
+        document.getElementById('createProjectBtn').addEventListener('click', () => this.showCreateProjectModal());
         document.getElementById('loadProject').addEventListener('click', () => this.loadProject());
         document.getElementById('saveProject').addEventListener('click', () => this.saveProject());
 
@@ -388,8 +402,11 @@ class CopilotNodeApp {
             speedValue.textContent = e.target.value + 'x';
         });
 
-        // Node panel drag and drop
-        this.initializeNodePanelDragDrop();
+        // Node panel drag and drop - delay to ensure DOM is ready
+        setTimeout(() => {
+            console.log('Attempting to initialize node panel drag and drop...');
+            this.initializeNodePanelDragDrop();
+        }, 500); // Increased delay to ensure DOM is fully ready
 
         // Modal controls
         document.getElementById('closeModal').addEventListener('click', () => this.hideUploadModal());
@@ -436,16 +453,27 @@ class CopilotNodeApp {
     }
 
     initializeNodePanelDragDrop() {
+        console.log('Initializing node panel drag and drop...');
+        
         const nodeItems = document.querySelectorAll('.node-item');
+        console.log(`Found ${nodeItems.length} node items`);
+        console.log('Node items:', Array.from(nodeItems).map(item => ({
+            element: item,
+            dataType: item.dataset.type,
+            text: item.textContent
+        })));
+        
         nodeItems.forEach(item => {
             item.draggable = true;
             
             item.addEventListener('dragstart', (e) => {
+                console.log(`Drag started for: ${item.dataset.type}`);
                 e.dataTransfer.setData('text/plain', item.dataset.type);
                 e.dataTransfer.effectAllowed = 'copy';
             });
 
             item.addEventListener('click', () => {
+                console.log(`Click on node item: ${item.dataset.type}`);
                 // Alternative: click to add node at center
                 this.addNodeToGraph(item.dataset.type, [400, 300]);
             });
@@ -453,19 +481,46 @@ class CopilotNodeApp {
 
         // Canvas drop handling
         const canvas = document.getElementById('graphCanvas');
+        if (!canvas) {
+            console.error('Canvas not found!');
+            return;
+        }
+        
+        console.log('Setting up canvas drop handlers');
+        
         canvas.addEventListener('dragover', (e) => {
             e.preventDefault();
             e.dataTransfer.dropEffect = 'copy';
         });
 
         canvas.addEventListener('drop', (e) => {
+            console.log('Drop event on canvas');
             e.preventDefault();
             const nodeType = e.dataTransfer.getData('text/plain');
+            console.log(`Dropped node type: ${nodeType}`);
+            
             if (nodeType) {
-                const canvasPos = this.canvas.convertEventToCanvasOffset(e);
-                this.addNodeToGraph(nodeType, [canvasPos[0], canvasPos[1]]);
+                try {
+                    const canvasPos = this.canvas.convertEventToCanvasOffset(e);
+                    console.log(`Canvas position: ${canvasPos[0]}, ${canvasPos[1]}`);
+                    this.addNodeToGraph(nodeType, [canvasPos[0], canvasPos[1]]);
+                } catch (error) {
+                    console.error('Error adding node to graph:', error);
+                }
             }
         });
+        
+        console.log('Node panel drag and drop initialization complete');
+        
+        // Test manual click simulation
+        if (nodeItems.length > 0) {
+            console.log('Testing manual click event after 2 seconds...');
+            setTimeout(() => {
+                console.log('Simulating click on first node item...');
+                const firstItem = nodeItems[0];
+                firstItem.click();
+            }, 2000);
+        }
     }
 
     initializeUploadArea() {
@@ -498,10 +553,27 @@ class CopilotNodeApp {
     }
 
     addNodeToGraph(nodeType, position) {
+        // Check if we have a current drawing selected
+        if (window.drawingManager && !window.drawingManager.currentDrawingId) {
+            // Show friendly notification instead of alert
+            this.showNotification('请先在左侧选择或创建一个画图才能添加节点！', 'warning');
+            console.log('addNodeToGraph blocked: No drawing selected');
+            return null;
+        }
+
+        console.log(`addNodeToGraph called: nodeType=${nodeType}, position=`, position);
+        console.log('Drawing manager state:', {
+            exists: !!window.drawingManager,
+            currentDrawingId: window.drawingManager?.currentDrawingId
+        });
+        console.log('Available node types:', Object.keys(LiteGraph.registered_node_types || {}));
+
         const nodeClassName = `autoclick/${nodeType}`;
+        console.log(`Attempting to create node: ${nodeClassName}`);
         const node = LiteGraph.createNode(nodeClassName);
         
         if (node) {
+            console.log('Node created successfully:', node);
             node.pos = position;
             // Set action_type property to match backend expectations
             node.properties = node.properties || {};
@@ -519,7 +591,14 @@ class CopilotNodeApp {
                 this.updatePropertiesPanel(node);
             }, 100);
             
+            console.log(`Added ${nodeType} node to current drawing:`, window.drawingManager?.currentDrawingId);
+            
             return node;
+        } else {
+            console.error(`Failed to create node: ${nodeClassName}`);
+            console.error('Node type not registered or creation failed');
+            this.showNotification(`无法创建节点类型: ${nodeType}`, 'error');
+            return null;
         }
         return null;
     }
@@ -545,7 +624,12 @@ class CopilotNodeApp {
         const content = document.getElementById('propertiesContent');
         
         if (!node) {
-            content.innerHTML = '<div class="no-selection">请选择一个节点</div>';
+            // Check if there's a selected drawing to show boundary settings
+            if (window.drawingManager && window.drawingManager.currentDrawingId) {
+                content.innerHTML = '<div class="no-node-selection">当前画图已选择，可在下方设置操作边界</div>';
+            } else {
+                content.innerHTML = '<div class="no-selection">请选择一个节点或画图</div>';
+            }
             return;
         }
 
@@ -613,6 +697,11 @@ class CopilotNodeApp {
                 // Force canvas redraw to show changes on the node
                 node.setDirtyCanvas(true, true);
                 this.canvas.setDirty(true, true);
+                
+                // Trigger auto-save after property change
+                if (window.drawingManager && window.drawingManager._triggerDelayedSave) {
+                    window.drawingManager._triggerDelayedSave();
+                }
             });
 
             // Also bind input event for real-time updates
@@ -701,6 +790,91 @@ class CopilotNodeApp {
         // Show/hide tab content
         document.getElementById('existingTab').style.display = tabName === 'existing' ? 'block' : 'none';
         document.getElementById('uploadTab').style.display = tabName === 'upload' ? 'block' : 'none';
+    }
+
+    // Project modal methods
+    showCreateProjectModal() {
+        document.getElementById('createProjectModal').style.display = 'flex';
+        // Clear form
+        document.getElementById('newProjectName').value = '';
+        document.getElementById('newProjectDescription').value = '';
+        
+        // Set up event listeners for this modal
+        this.setupCreateProjectModalEvents();
+    }
+
+    hideCreateProjectModal() {
+        document.getElementById('createProjectModal').style.display = 'none';
+        // Clean up event listeners
+        this.cleanupCreateProjectModalEvents();
+    }
+
+    setupCreateProjectModalEvents() {
+        // Close button
+        document.getElementById('closeCreateProjectModal').onclick = () => this.hideCreateProjectModal();
+        
+        // Cancel button  
+        document.getElementById('cancelCreateProject').onclick = () => this.hideCreateProjectModal();
+        
+        // Create button
+        document.getElementById('confirmCreateProject').onclick = () => this.createProject();
+        
+        // Close on background click
+        document.getElementById('createProjectModal').onclick = (e) => {
+            if (e.target === document.getElementById('createProjectModal')) {
+                this.hideCreateProjectModal();
+            }
+        };
+    }
+
+    cleanupCreateProjectModalEvents() {
+        document.getElementById('closeCreateProjectModal').onclick = null;
+        document.getElementById('cancelCreateProject').onclick = null;
+        document.getElementById('confirmCreateProject').onclick = null;
+        document.getElementById('createProjectModal').onclick = null;
+    }
+
+    async createProject() {
+        const name = document.getElementById('newProjectName').value.trim();
+        const description = document.getElementById('newProjectDescription').value.trim();
+        
+        if (!name) {
+            alert('请输入项目名称');
+            return;
+        }
+
+        try {
+            const response = await fetch('/api/projects', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    name: name,
+                    description: description
+                })
+            });
+
+            if (response.ok) {
+                const result = await response.json();
+                this.showNotification(`项目创建成功: ${name}`, 'success');
+                this.hideCreateProjectModal();
+                await this.loadProjectList();
+                
+                // Optionally set as active project and load it
+                if (result.project_id) {
+                    const select = document.getElementById('projectSelect');
+                    select.value = result.project_id;
+                    await this.loadProject();
+                }
+            } else {
+                const error = await response.json();
+                alert(`创建项目失败: ${error.error || '未知错误'}`);
+            }
+        } catch (error) {
+            console.error('Create project error:', error);
+            alert('创建项目失败');
+        }
     }
 
     async loadExistingImages() {
@@ -930,7 +1104,8 @@ class CopilotNodeApp {
         try {
             const response = await fetch('/api/projects');
             if (response.ok) {
-                const projects = await response.json();
+                const data = await response.json();
+                const projects = data.projects || [];
                 const select = document.getElementById('projectSelect');
                 
                 // Clear existing options except first
@@ -940,8 +1115,8 @@ class CopilotNodeApp {
                 
                 projects.forEach(project => {
                     const option = document.createElement('option');
-                    option.value = project;
-                    option.textContent = project;
+                    option.value = project.id;
+                    option.textContent = project.name;
                     select.appendChild(option);
                 });
             }
@@ -952,19 +1127,25 @@ class CopilotNodeApp {
 
     async loadProject() {
         const select = document.getElementById('projectSelect');
-        const filename = select.value;
+        const projectId = select.value;
         
-        if (!filename) {
-            alert('请选择一个项目文件');
+        if (!projectId) {
+            alert('请选择一个项目');
             return;
         }
 
         try {
-            const response = await fetch(`/api/projects/${filename}`);
-            if (response.ok) {
-                const projectData = await response.json();
-                this.loadGraphFromData(projectData);
-                alert('项目加载成功');
+            // Set the active project
+            const setActiveResponse = await fetch(`/api/projects/${projectId}/activate`, {
+                method: 'POST'
+            });
+            
+            if (setActiveResponse.ok) {
+                // Refresh drawing manager to load project drawings
+                if (window.drawingManager) {
+                    await window.drawingManager.checkAndLoadDrawings();
+                }
+                this.showNotification('项目加载成功', 'success');
             } else {
                 alert('加载项目失败');
             }
@@ -975,44 +1156,13 @@ class CopilotNodeApp {
     }
 
     async saveProject() {
-        const filename = prompt('请输入项目文件名:');
-        if (!filename) return;
-
-        const projectData = this.exportGraphData();
-        console.log('Saving project data:', projectData);
-
-        try {
-            // First sync the current graph data to backend
-            await fetch('/api/nodes', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(projectData)
-            });
-
-            // Then save the project with filename
-            const response = await fetch('/api/projects', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    filename: filename
-                })
-            });
-
-            if (response.ok) {
-                const result = await response.json();
-                alert(`项目保存成功: ${result.filename}`);
-                this.loadProjectList();
-            } else {
-                const error = await response.text();
-                alert(`保存项目失败: ${error}`);
-            }
-        } catch (error) {
-            console.error('Save project error:', error);
-            alert('保存项目失败');
+        // In the new architecture, projects are managed through the drawing manager
+        // This method now saves the current drawing instead of the entire project
+        if (window.drawingManager && window.drawingManager.currentDrawingId) {
+            await window.drawingManager.saveCurrentDrawing();
+            this.showNotification('当前画图已保存', 'success');
+        } else {
+            alert('没有选择的画图需要保存');
         }
     }
 
@@ -1337,6 +1487,144 @@ class CopilotNodeApp {
         
         return data;
     }
+
+    showNotification(message, type = 'info', duration = 3000) 
+    {
+        const notification = document.createElement('div');
+        notification.className = `notification notification-${type}`;
+        notification.textContent = message;
+        
+        // Style the notification
+        Object.assign(notification.style, {
+            position: 'fixed',
+            top: '20px',
+            right: '20px',
+            padding: '12px 20px',
+            borderRadius: '4px',
+            color: 'white',
+            fontWeight: 'bold',
+            zIndex: '10000',
+            maxWidth: '400px',
+            boxShadow: '0 2px 10px rgba(0,0,0,0.2)',
+            transform: 'translateX(100%)',
+            transition: 'transform 0.3s ease'
+        });
+
+        // Set background color based on type
+        const colors = {
+            info: '#007bff',
+            success: '#28a745',
+            warning: '#ffc107',
+            error: '#dc3545'
+        };
+        notification.style.backgroundColor = colors[type] || colors.info;
+
+        document.body.appendChild(notification);
+
+        // Animate in
+        setTimeout(() => {
+            notification.style.transform = 'translateX(0)';
+        }, 10);
+
+        // Auto remove
+        setTimeout(() => {
+            notification.style.transform = 'translateX(100%)';
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.parentNode.removeChild(notification);
+                }
+            }, 300);
+        }, duration);
+    }
+
+    // Helper method to serialize node data (for saving to drawings)
+    serializeNodeToData(node) 
+    {
+        const nodeData = {
+            id: node.id.toString(),
+            action_type: node.properties?.action_type || 'click',
+            title: node.title,
+            pos: [node.pos[0], node.pos[1]],
+            size: [node.size[0], node.size[1]],
+            params: {},
+            connections: []
+        };
+
+        // Copy properties to params
+        if (node.properties) {
+            Object.keys(node.properties).forEach(key => {
+                if (key !== 'action_type') { // Skip internal property
+                    nodeData.params[key] = node.properties[key];
+                }
+            });
+        }
+
+        // Get output connections
+        if (node.outputs) {
+            node.outputs.forEach(output => {
+                if (output.links) {
+                    output.links.forEach(linkId => {
+                        const link = this.graph.links[linkId];
+                        if (link && link.target_id) {
+                            const targetNode = this.graph.getNodeById(link.target_id);
+                            if (targetNode) {
+                                nodeData.connections.push(targetNode.id.toString());
+                            }
+                        }
+                    });
+                }
+            });
+        }
+
+        return nodeData;
+    }
+
+    // Helper method to load a single node from data (used by drawing manager)
+    loadNodeFromData(nodeData) {
+        console.log(`Loading node: ${nodeData.id} (${nodeData.action_type})`);
+        
+        // Use position from nodeData if available, otherwise use default
+        const position = [nodeData.pos ? nodeData.pos[0] : (nodeData.x || 0), 
+                         nodeData.pos ? nodeData.pos[1] : (nodeData.y || 0)];
+        
+        const node = this.addNodeToGraph(nodeData.action_type, position);
+        if (node) {
+            // Apply properties from params
+            if (nodeData.params) {
+                Object.assign(node.properties, nodeData.params);
+                console.log(`Applied properties to node ${nodeData.id}:`, nodeData.params);
+                
+                // Manually sync widgets if node supports it
+                if (typeof node.syncWidgets === 'function') {
+                    node.syncWidgets();
+                    console.log(`Synced widgets for node ${nodeData.id}`);
+                }
+            }
+            
+            // Store original ID for reference
+            node._original_id = nodeData.id;
+            
+            // Set node size if provided
+            if (nodeData.size) {
+                node.size[0] = nodeData.size[0];
+                node.size[1] = nodeData.size[1];
+            }
+            
+            // Store pending connections for later processing
+            if (nodeData.connections && nodeData.connections.length > 0) {
+                node._pendingConnections = nodeData.connections;
+                console.log(`Stored ${nodeData.connections.length} pending connections for node ${nodeData.id}:`, nodeData.connections);
+            }
+            
+            // Force node redraw to show loaded properties
+            node.setDirtyCanvas(true, true);
+            
+            return node;
+        } else {
+            console.error(`Failed to create node ${nodeData.id} of type ${nodeData.action_type}`);
+            return null;
+        }
+    }
 }
 
 // Global functions for HTML onclick handlers
@@ -1476,7 +1764,7 @@ window.testSaveLoadBackend = async function() {
             return 'Backend test ERROR - check console for details';
         }
     }
-};
+}
 
 // Initialize app when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
