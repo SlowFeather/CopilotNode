@@ -154,6 +154,9 @@ class ExecutionService:
         action_type = node["action_type"]
         params = node["params"]
         
+        # Track mouse position before and after each action
+        before_x, before_y = pyautogui.position()
+        print(f"DEBUG: Before executing {action_type} node {node['id']}: mouse at ({before_x}, {before_y})")
         print(f"DEBUG: Executing node {node['id']} - action_type: {action_type}, params: {params}")
         
         try:
@@ -165,10 +168,22 @@ class ExecutionService:
                 self._execute_keyboard(params)
             elif action_type == "wait":
                 self._execute_wait(params)
+            elif action_type == "mousedown":
+                self._execute_mouse_down(node, params)
+            elif action_type == "mouseup":
+                self._execute_mouse_up(node, params)
+            elif action_type == "mousescroll":
+                self._execute_mouse_scroll(node, params)
             elif action_type in ["findimg", "followimg", "clickimg"]:
                 self._execute_image_action(action_type, params)
             elif action_type == "if":
                 self._execute_if_condition(node, params)
+            else:
+                print(f"WARNING: Unknown action type: {action_type}. Skipping node {node['id']}")
+            
+            # Track mouse position after execution
+            after_x, after_y = pyautogui.position()
+            print(f"DEBUG: After executing {action_type} node {node['id']}: mouse at ({after_x}, {after_y})")
                 
         except pyautogui.FailSafeException:
             print(f"PyAutoGUI failsafe triggered for action {action_type}. Move mouse away from screen corners.")
@@ -185,25 +200,35 @@ class ExecutionService:
             })
 
     def _execute_click(self, node: Dict[str, Any], params: Dict[str, Any]):
-        x, y = params.get("x", 0), params.get("y", 0)
+        position_mode = params.get("position_mode", "absolute")
+        
+        if position_mode == "current":
+            # 使用当前鼠标位置
+            current_x, current_y = pyautogui.position()
+            final_x, final_y = current_x, current_y
+        else:
+            # 使用绝对坐标
+            x, y = params.get("x", 0), params.get("y", 0)
+            
+            if x == 0 and y == 0:
+                print(f"WARNING: Click node {node['id']} has coordinates (0,0). This might be unintended. Skipping...")
+                return
+            
+            final_x, final_y = x, y
+        
+        # 添加随机偏移（对两种模式都生效）
         x_random = params.get("x_random", 0.0)
         y_random = params.get("y_random", 0.0)
         
-        if x == 0 and y == 0:
-            print(f"WARNING: Click node {node['id']} has coordinates (0,0). This might be unintended. Skipping...")
-            return
-        
-        final_x, final_y = x, y
-        
         if x_random > 0:
             random_x_offset = random.uniform(-x_random, x_random)
-            final_x = int(x + random_x_offset)
+            final_x = int(final_x + random_x_offset)
             
         if y_random > 0:
             random_y_offset = random.uniform(-y_random, y_random)
-            final_y = int(y + random_y_offset)
+            final_y = int(final_y + random_y_offset)
         
-        print(f"DEBUG: Click node - base_coords: ({x}, {y}), x_random: ±{x_random}, y_random: ±{y_random}, final_coords: ({final_x}, {final_y})")
+        print(f"DEBUG: Click node - position_mode: {position_mode}, x_random: ±{x_random}, y_random: ±{y_random}, final_coords: ({final_x}, {final_y})")
         
         screen_width, screen_height = pyautogui.size()
         if 0 <= final_x <= screen_width and 0 <= final_y <= screen_height:
@@ -221,7 +246,17 @@ class ExecutionService:
         speed_factor = params.get("speed_factor", 1.0)
         speed_random = params.get("speed_random", 0.0)
         
-        print(f"DEBUG: Move node - params: {params}, x: {x}, y: {y}")
+        print(f"DEBUG: Move node {node['id']} - raw params: {params}")
+        print(f"DEBUG: Move node {node['id']} - parsed x: {x} (type: {type(x)}), y: {y} (type: {type(y)}), duration: {duration}")
+        
+        # Try to convert to int to ensure proper types
+        try:
+            x = int(float(x)) if x is not None else 0
+            y = int(float(y)) if y is not None else 0
+            print(f"DEBUG: Move node {node['id']} - converted x: {x}, y: {y}")
+        except (ValueError, TypeError) as e:
+            print(f"ERROR: Move node {node['id']} - failed to convert coordinates: {e}")
+            return
         
         if x == 0 and y == 0:
             print(f"WARNING: Move node {node['id']} has coordinates (0,0). This might be unintended. Skipping...")
@@ -246,8 +281,16 @@ class ExecutionService:
         print(f"DEBUG: Move speed - base_speed: {speed_factor}, speed_random: ±{speed_random}, final_speed: {final_speed_factor:.2f}")
         
         screen_width, screen_height = pyautogui.size()
+        current_x, current_y = pyautogui.position()
+        print(f"DEBUG: Move node - screen size: {screen_width}x{screen_height}")
+        print(f"DEBUG: Move node - current position before move: ({current_x}, {current_y})")
+        print(f"DEBUG: Move node - target position: ({x}, {y}), duration: {final_duration:.2f}s")
+        print(f"DEBUG: Move node - target in bounds: {0 <= x <= screen_width and 0 <= y <= screen_height}")
+        
         if 0 <= x <= screen_width and 0 <= y <= screen_height:
             pyautogui.moveTo(x, y, duration=final_duration)
+            final_x, final_y = pyautogui.position()
+            print(f"DEBUG: Move node - final position after move: ({final_x}, {final_y})")
             print(f"DEBUG: Successfully moved to ({x}, {y}) in {final_duration:.2f}s")
         else:
             print(f"Move coordinates ({x}, {y}) are outside screen bounds")
@@ -326,3 +369,156 @@ class ExecutionService:
             print(f"DEBUG: IF node {node['id']} - unknown condition type: {condition_type}")
         
         node['_condition_result'] = condition_result
+
+    def _execute_mouse_down(self, node: Dict[str, Any], params: Dict[str, Any]):
+        """执行鼠标按下操作"""
+        position_mode = params.get("position_mode", "absolute")
+        button = params.get("button", "left")
+        
+        if position_mode == "current":
+            # 使用当前鼠标位置
+            current_x, current_y = pyautogui.position()
+            final_x, final_y = current_x, current_y
+        else:
+            # 使用绝对坐标
+            x, y = params.get("x", 0), params.get("y", 0)
+            
+            # 检查是否为默认的(0,0)坐标，如果是则跳过移动
+            if x == 0 and y == 0:
+                print(f"WARNING: MouseDown node {node['id']} has coordinates (0,0). Using current position instead...")
+                current_x, current_y = pyautogui.position()
+                final_x, final_y = current_x, current_y
+            else:
+                final_x, final_y = x, y
+                
+                # 添加随机偏移（只在非(0,0)坐标时）
+                x_random = params.get("x_random", 0.0)
+                y_random = params.get("y_random", 0.0)
+                
+                if x_random > 0:
+                    random_x_offset = random.uniform(-x_random, x_random)
+                    final_x = int(x + random_x_offset)
+                    
+                if y_random > 0:
+                    random_y_offset = random.uniform(-y_random, y_random)
+                    final_y = int(y + random_y_offset)
+        
+        # 对current模式也添加随机偏移
+        if position_mode == "current":
+            x_random = params.get("x_random", 0.0)
+            y_random = params.get("y_random", 0.0)
+            
+            if x_random > 0:
+                random_x_offset = random.uniform(-x_random, x_random)
+                final_x = int(final_x + random_x_offset)
+                
+            if y_random > 0:
+                random_y_offset = random.uniform(-y_random, y_random)
+                final_y = int(final_y + random_y_offset)
+        
+        print(f"DEBUG: MouseDown node - position_mode: {position_mode}, button: {button}, final_coords: ({final_x}, {final_y})")
+        
+        screen_width, screen_height = pyautogui.size()
+        if 0 <= final_x <= screen_width and 0 <= final_y <= screen_height:
+            # 移动到目标位置
+            pyautogui.moveTo(final_x, final_y, duration=0.1)
+            time.sleep(0.1)
+            # 按下鼠标按钮
+            pyautogui.mouseDown(button=button)
+            print(f"DEBUG: Successfully pressed {button} mouse button at ({final_x}, {final_y})")
+        else:
+            print(f"MouseDown coordinates ({final_x}, {final_y}) are outside screen bounds")
+
+    def _execute_mouse_up(self, node: Dict[str, Any], params: Dict[str, Any]):
+        """执行鼠标松开操作"""
+        position_mode = params.get("position_mode", "absolute")
+        button = params.get("button", "left")
+        
+        if position_mode == "current":
+            # 使用当前鼠标位置
+            current_x, current_y = pyautogui.position()
+            final_x, final_y = current_x, current_y
+        else:
+            # 使用绝对坐标
+            x, y = params.get("x", 0), params.get("y", 0)
+            
+            if x == 0 and y == 0:
+                print(f"WARNING: MouseUp node {node['id']} has coordinates (0,0). This might be unintended. Skipping...")
+                return
+            
+            final_x, final_y = x, y
+        
+        # 添加随机偏移（对两种模式都生效）
+        x_random = params.get("x_random", 0.0)
+        y_random = params.get("y_random", 0.0)
+        
+        if x_random > 0:
+            random_x_offset = random.uniform(-x_random, x_random)
+            final_x = int(final_x + random_x_offset)
+            
+        if y_random > 0:
+            random_y_offset = random.uniform(-y_random, y_random)
+            final_y = int(final_y + random_y_offset)
+        
+        print(f"DEBUG: MouseUp node - position_mode: {position_mode}, button: {button}, x_random: ±{x_random}, y_random: ±{y_random}, final_coords: ({final_x}, {final_y})")
+        
+        screen_width, screen_height = pyautogui.size()
+        if 0 <= final_x <= screen_width and 0 <= final_y <= screen_height:
+            # 移动到目标位置
+            pyautogui.moveTo(final_x, final_y, duration=0.1)
+            time.sleep(0.1)
+            # 松开鼠标按钮
+            pyautogui.mouseUp(button=button)
+            print(f"DEBUG: Successfully released {button} mouse button at ({final_x}, {final_y})")
+        else:
+            print(f"MouseUp coordinates ({final_x}, {final_y}) are outside screen bounds")
+
+    def _execute_mouse_scroll(self, node: Dict[str, Any], params: Dict[str, Any]):
+        """执行鼠标滚轮操作"""
+        position_mode = params.get("position_mode", "absolute")
+        direction = params.get("direction", "up")
+        clicks = params.get("clicks", 3)
+        
+        if position_mode == "current":
+            # 使用当前鼠标位置
+            current_x, current_y = pyautogui.position()
+            final_x, final_y = current_x, current_y
+        else:
+            # 使用绝对坐标
+            x, y = params.get("x", 0), params.get("y", 0)
+            
+            # 检查是否为默认的(0,0)坐标，如果是则使用当前位置
+            if x == 0 and y == 0:
+                print(f"WARNING: MouseScroll node {node['id']} has coordinates (0,0). Using current position instead...")
+                current_x, current_y = pyautogui.position()
+                final_x, final_y = current_x, current_y
+            else:
+                final_x, final_y = x, y
+        
+        # 添加随机偏移（对两种模式都生效）
+        x_random = params.get("x_random", 0.0)
+        y_random = params.get("y_random", 0.0)
+        
+        if x_random > 0:
+            random_x_offset = random.uniform(-x_random, x_random)
+            final_x = int(final_x + random_x_offset)
+            
+        if y_random > 0:
+            random_y_offset = random.uniform(-y_random, y_random)
+            final_y = int(final_y + random_y_offset)
+        
+        # 确定滚轮方向
+        scroll_amount = clicks if direction == "up" else -clicks
+        
+        print(f"DEBUG: MouseScroll node - position_mode: {position_mode}, direction: {direction}, clicks: {clicks}, final_coords: ({final_x}, {final_y})")
+        
+        screen_width, screen_height = pyautogui.size()
+        if 0 <= final_x <= screen_width and 0 <= final_y <= screen_height:
+            # 移动到目标位置
+            pyautogui.moveTo(final_x, final_y, duration=0.1)
+            time.sleep(0.1)
+            # 滚动鼠标滚轮
+            pyautogui.scroll(scroll_amount)
+            print(f"DEBUG: Successfully scrolled {direction} {clicks} clicks at ({final_x}, {final_y})")
+        else:
+            print(f"MouseScroll coordinates ({final_x}, {final_y}) are outside screen bounds")

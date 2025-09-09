@@ -511,16 +511,6 @@ class CopilotNodeApp {
         });
         
         console.log('Node panel drag and drop initialization complete');
-        
-        // Test manual click simulation
-        if (nodeItems.length > 0) {
-            console.log('Testing manual click event after 2 seconds...');
-            setTimeout(() => {
-                console.log('Simulating click on first node item...');
-                const firstItem = nodeItems[0];
-                firstItem.click();
-            }, 2000);
-        }
     }
 
     initializeUploadArea() {
@@ -552,7 +542,7 @@ class CopilotNodeApp {
         });
     }
 
-    addNodeToGraph(nodeType, position) {
+    addNodeToGraph(nodeType, position, autoSelect = true) {
         // Check if we have a current drawing selected
         if (window.drawingManager && !window.drawingManager.currentDrawingId) {
             // Show friendly notification instead of alert
@@ -583,13 +573,17 @@ class CopilotNodeApp {
             this.setDefaultProperties(node, nodeType);
             
             this.graph.add(node);
-            this.canvas.selectNode(node);
             
-            // Force update properties panel
-            setTimeout(() => {
-                this.selectedNode = node;
-                this.updatePropertiesPanel(node);
-            }, 100);
+            // Only select node if autoSelect is true (default for manual adds)
+            if (autoSelect) {
+                this.canvas.selectNode(node);
+                
+                // Force update properties panel
+                setTimeout(() => {
+                    this.selectedNode = node;
+                    this.updatePropertiesPanel(node);
+                }, 100);
+            }
             
             console.log(`Added ${nodeType} node to current drawing:`, window.drawingManager?.currentDrawingId);
             
@@ -600,15 +594,17 @@ class CopilotNodeApp {
             this.showNotification(`无法创建节点类型: ${nodeType}`, 'error');
             return null;
         }
-        return null;
     }
 
     setDefaultProperties(node, nodeType) {
         const defaults = {
-            'click': { x: 0, y: 0, x_random: 0, y_random: 0 },
+            'click': { position_mode: 'absolute', x: 0, y: 0, x_random: 0, y_random: 0 },
             'move': { x: 0, y: 0, duration: 0.2, duration_random: 0, speed_factor: 1.0, speed_random: 0 },
             'keyboard': { text: '', key: '' },
             'wait': { duration: 1.0 },
+            'mousedown': { position_mode: 'absolute', x: 0, y: 0, button: 'left', x_random: 0, y_random: 0 },
+            'mouseup': { position_mode: 'absolute', x: 0, y: 0, button: 'left', x_random: 0, y_random: 0 },
+            'mousescroll': { position_mode: 'absolute', x: 0, y: 0, direction: 'up', clicks: 3, x_random: 0, y_random: 0 },
             'findimg': { image_path: '', confidence: 0.8 },
             'clickimg': { image_path: '', confidence: 0.8, x_random: 0, y_random: 0 },
             'followimg': { image_path: '', confidence: 0.8 },
@@ -656,15 +652,42 @@ class CopilotNodeApp {
                 if (key === 'action_type') return; // Skip internal property
                 
                 const value = properties[key];
-                const inputType = typeof value === 'number' ? 'number' : 'text';
                 
-                html += `<div class="property-group">
-                    <label class="property-label">${this.getPropertyLabel(key)}</label>
-                    <input type="${inputType}" class="property-input" 
+                // Handle different input types based on property name
+                let inputHtml = '';
+                
+                if (key === 'position_mode') {
+                    // Position mode dropdown
+                    inputHtml = `<select class="property-input" data-property="${key}">
+                        <option value="absolute" ${value === 'absolute' ? 'selected' : ''}>绝对坐标</option>
+                        <option value="current" ${value === 'current' ? 'selected' : ''}>当前鼠标位置</option>
+                    </select>`;
+                } else if (key === 'button') {
+                    // Mouse button dropdown
+                    inputHtml = `<select class="property-input" data-property="${key}">
+                        <option value="left" ${value === 'left' ? 'selected' : ''}>左键</option>
+                        <option value="right" ${value === 'right' ? 'selected' : ''}>右键</option>
+                        <option value="middle" ${value === 'middle' ? 'selected' : ''}>中键</option>
+                    </select>`;
+                } else if (key === 'direction') {
+                    // Scroll direction dropdown
+                    inputHtml = `<select class="property-input" data-property="${key}">
+                        <option value="up" ${value === 'up' ? 'selected' : ''}>向上</option>
+                        <option value="down" ${value === 'down' ? 'selected' : ''}>向下</option>
+                    </select>`;
+                } else {
+                    // Regular input
+                    const inputType = typeof value === 'number' ? 'number' : 'text';
+                    inputHtml = `<input type="${inputType}" class="property-input" 
                            data-property="${key}" 
                            value="${value || ''}"
                            ${key.includes('image_path') ? 'readonly' : ''}
-                           step="${inputType === 'number' ? '0.1' : ''}">
+                           step="${inputType === 'number' ? '0.1' : ''}">`;
+                }
+                
+                html += `<div class="property-group">
+                    <label class="property-label">${this.getPropertyLabel(key)}</label>
+                    ${inputHtml}
                 </div>`;
 
                 // Add upload button for image properties
@@ -694,6 +717,23 @@ class CopilotNodeApp {
                 console.log(`Updating property ${property} to:`, value);
                 node.properties[property] = value;
                 
+                // Trigger node's onPropertyChanged method if it exists
+                if (typeof node.onPropertyChanged === 'function') {
+                    node.onPropertyChanged(property, value);
+                }
+                
+                // Also trigger the node's updateWidgets method if it exists (for dynamic UI changes)
+                if (typeof node.updateWidgets === 'function') {
+                    node.updateWidgets();
+                }
+                
+                // For certain properties that affect UI visibility, refresh the properties panel
+                if (property === 'position_mode') {
+                    setTimeout(() => {
+                        this.updatePropertiesPanel(node);
+                    }, 50);
+                }
+                
                 // Force canvas redraw to show changes on the node
                 node.setDirtyCanvas(true, true);
                 this.canvas.setDirty(true, true);
@@ -715,6 +755,16 @@ class CopilotNodeApp {
                 
                 node.properties[property] = value;
                 
+                // Trigger node's onPropertyChanged method if it exists
+                if (typeof node.onPropertyChanged === 'function') {
+                    node.onPropertyChanged(property, value);
+                }
+                
+                // Also trigger the node's updateWidgets method if it exists (for dynamic UI changes)
+                if (typeof node.updateWidgets === 'function') {
+                    node.updateWidgets();
+                }
+                
                 // Force immediate redraw for real-time updates
                 node.setDirtyCanvas(true, true);
                 this.canvas.setDirty(true, true);
@@ -734,6 +784,10 @@ class CopilotNodeApp {
             'speed_random': '速度随机范围',
             'text': '文本内容',
             'key': '按键',
+            'position_mode': '位置模式',
+            'button': '鼠标按键',
+            'direction': '滚动方向',
+            'clicks': '滚动次数',
             'image_path': '图像路径',
             'confidence': '匹配度',
             'condition_type': '条件类型',
@@ -1182,7 +1236,7 @@ class CopilotNodeApp {
         data.nodes.forEach((nodeData, index) => {
             console.log(`Creating node ${index + 1}: ${nodeData.id} (${nodeData.action_type})`);
             
-            const node = this.addNodeToGraph(nodeData.action_type, [nodeData.x || 0, nodeData.y || 0]);
+            const node = this.addNodeToGraph(nodeData.action_type, [nodeData.x || 0, nodeData.y || 0], false); // Don't auto-select when loading from file
             if (node) {
                 // Store the original ID mapping
                 nodeMap.set(nodeData.id, node);
@@ -1282,6 +1336,12 @@ class CopilotNodeApp {
             
             // Remove internal properties
             delete nodeData.params.action_type;
+            
+            // Debug: Log move node params specifically
+            if (nodeData.action_type === 'move') {
+                console.log(`DEBUG: Move node ${node.id} export params:`, nodeData.params);
+                console.log(`DEBUG: Move node original properties:`, node.properties);
+            }
             
             // Get connections with detailed information
             if (node.outputs) {
@@ -1560,15 +1620,20 @@ class CopilotNodeApp {
         }
 
         // Get output connections
-        if (node.outputs) {
-            node.outputs.forEach(output => {
-                if (output.links) {
+        if (node.outputs && node.outputs.length > 0) {
+            node.outputs.forEach((output) => {
+                if (output.links && output.links.length > 0) {
                     output.links.forEach(linkId => {
                         const link = this.graph.links[linkId];
                         if (link && link.target_id) {
                             const targetNode = this.graph.getNodeById(link.target_id);
                             if (targetNode) {
-                                nodeData.connections.push(targetNode.id.toString());
+                                // Since we now force runtime ID to match original ID, we can just use the ID
+                                const connectionId = targetNode.id.toString();
+                                nodeData.connections.push(connectionId);
+                                console.log(`💾 Saving connection: ${node.id} -> ${connectionId}`);
+                            } else {
+                                console.warn(`❌ Target node ${link.target_id} not found for link ${linkId}`);
                             }
                         }
                     });
@@ -1587,8 +1652,33 @@ class CopilotNodeApp {
         const position = [nodeData.pos ? nodeData.pos[0] : (nodeData.x || 0), 
                          nodeData.pos ? nodeData.pos[1] : (nodeData.y || 0)];
         
-        const node = this.addNodeToGraph(nodeData.action_type, position);
+        const node = this.addNodeToGraph(nodeData.action_type, position, false); // Don't auto-select when loading
         if (node) {
+            // Store original ID for reference
+            node._original_id = nodeData.id;
+            
+            // Force node ID to match the saved ID to prevent connection issues
+            const savedId = parseInt(nodeData.id);
+            const oldId = node.id;
+            
+            // Only update ID if it's different (should be rare now with pre-set counter)
+            if (oldId !== savedId) {
+                // Remove node from old ID mapping
+                if (this.graph._nodes_by_id && this.graph._nodes_by_id[oldId]) {
+                    delete this.graph._nodes_by_id[oldId];
+                }
+                
+                // Set new ID and update mapping
+                node.id = savedId;
+                if (this.graph._nodes_by_id) {
+                    this.graph._nodes_by_id[savedId] = node;
+                }
+                
+                console.log(`🔧 Corrected node ID: ${oldId} -> ${savedId}`);
+            } else {
+                console.log(`✅ Node ID already correct: ${savedId}`);
+            }
+            
             // Apply properties from params
             if (nodeData.params) {
                 Object.assign(node.properties, nodeData.params);
@@ -1601,9 +1691,6 @@ class CopilotNodeApp {
                 }
             }
             
-            // Store original ID for reference
-            node._original_id = nodeData.id;
-            
             // Set node size if provided
             if (nodeData.size) {
                 node.size[0] = nodeData.size[0];
@@ -1613,7 +1700,9 @@ class CopilotNodeApp {
             // Store pending connections for later processing
             if (nodeData.connections && nodeData.connections.length > 0) {
                 node._pendingConnections = nodeData.connections;
-                console.log(`Stored ${nodeData.connections.length} pending connections for node ${nodeData.id}:`, nodeData.connections);
+                console.log(`📋 Stored ${nodeData.connections.length} pending connections for node ${nodeData.id}:`, nodeData.connections);
+            } else {
+                console.log(`📭 No connections to store for node ${nodeData.id}`);
             }
             
             // Force node redraw to show loaded properties

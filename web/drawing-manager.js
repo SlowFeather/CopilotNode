@@ -162,24 +162,29 @@ class DrawingManager {
 
     async checkAndLoadDrawings() {
         try {
+            console.log('🔍 Checking for active project...');
             // First check if there's an active project
             const activeProjectResponse = await fetch('/api/projects/active');
+            console.log('📡 Active project response status:', activeProjectResponse.status);
+            
             if (activeProjectResponse.status === 404) {
                 // No active project - show empty state
-                console.log('No active project found - not loading drawings');
+                console.log('📭 No active project found - rendering empty state');
                 this.renderEmptyState();
                 return;
             }
             
             if (activeProjectResponse.ok) {
                 // There's an active project - load its drawings
+                console.log('✅ Active project found - loading drawings');
                 await this.loadDrawings();
             } else {
-                console.warn('Failed to check active project status');
+                console.warn('⚠️ Failed to check active project status, status:', activeProjectResponse.status);
                 this.renderEmptyState();
             }
         } catch (error) {
-            console.error('Failed to check active project:', error);
+            console.error('❌ Failed to check active project:', error);
+            console.log('🔄 Rendering empty state due to error');
             this.renderEmptyState();
         }
     }
@@ -203,8 +208,20 @@ class DrawingManager {
     }
     
     renderEmptyState() {
+        console.log('🗂️ Rendering empty state');
+        
+        // Clear drawings data
+        this.drawings.clear();
+        this.currentDrawingId = null;
+        
+        // Update UI
+        this.updateCurrentDrawingIndicator(null);
+        
         const drawingList = document.querySelector('.drawing-list');
-        if (!drawingList) return;
+        if (!drawingList) {
+            console.warn('⚠️ Drawing list element not found');
+            return;
+        }
         
         drawingList.innerHTML = `
             <div class="no-project-state">
@@ -213,6 +230,8 @@ class DrawingManager {
                 <div class="empty-hint">选择项目后即可管理画图</div>
             </div>
         `;
+        
+        console.log('✅ Empty state rendered successfully');
     }
 
     renderDrawingList() {
@@ -342,7 +361,17 @@ class DrawingManager {
                 // Load new drawing's nodes if any exist
                 if (drawing.nodes && drawing.nodes.length > 0) {
                     console.log(`Loading ${drawing.nodes.length} nodes for drawing ${drawing.name}`);
-                    drawing.nodes.forEach(nodeData => {
+                    
+                    // Sort nodes by ID to ensure consistent loading order and avoid ID conflicts
+                    const sortedNodes = [...drawing.nodes].sort((a, b) => parseInt(a.id) - parseInt(b.id));
+                    console.log(`📊 Loading nodes in ID order: ${sortedNodes.map(n => n.id).join(', ')}`);
+                    
+                    // Set the graph's node counter to the highest ID + 1 to prevent conflicts
+                    const maxId = Math.max(...sortedNodes.map(n => parseInt(n.id)));
+                    window.app.graph._last_node_id = maxId + 1;
+                    console.log(`🔧 Set graph node counter to: ${window.app.graph._last_node_id}`);
+                    
+                    sortedNodes.forEach(nodeData => {
                         const loadedNode = window.app.loadNodeFromData(nodeData);
                         if (!loadedNode) {
                             console.warn('Failed to load node:', nodeData);
@@ -351,8 +380,33 @@ class DrawingManager {
                     
                     // Process connections after all nodes are loaded
                     this.processNodeConnections();
+                    
+                    // Force complete canvas and graph refresh to fix connection rendering issues
+                    setTimeout(() => {
+                        if (window.app.canvas && window.app.graph) {
+                            console.log('🔄 Performing complete graph and canvas refresh...');
+                            
+                            // Force graph to recalculate all internal structures
+                            window.app.graph._version++;
+                            window.app.graph.updateExecutionOrder();
+                            
+                            // Force canvas refresh with complete redraw
+                            window.app.canvas.setDirty(true, true);
+                            window.app.canvas.draw(true, true);
+                            window.app.canvas.setDirty(true, true);
+                        }
+                    }, 100);
                 } else {
                     console.log(`No nodes to load for drawing ${drawing.name} - ready for new nodes`);
+                }
+                
+                // Clear any node selection after loading
+                if (window.app.canvas) {
+                    window.app.canvas.deselectAllNodes();
+                    window.app.selectedNode = null;
+                    window.app.selectedNodes.clear();
+                    window.app.updatePropertiesPanel(null);
+                    console.log('Cleared node selection after drawing switch');
                 }
                 
                 // Enable auto-save for this drawing
@@ -619,9 +673,12 @@ class DrawingManager {
             // Get current nodes from graph
             const nodes = [];
             if (window.app.graph._nodes) {
+                console.log(`💾 Saving ${window.app.graph._nodes.length} nodes from graph:`);
                 window.app.graph._nodes.forEach(node => {
+                    console.log(`  📝 Processing node ${node.id} (${node.title})`);
                     nodes.push(window.app.serializeNodeToData(node));
                 });
+                console.log(`💾 Total serialized nodes: ${nodes.length}`);
             }
 
             const response = await fetch(`/api/drawings/${this.currentDrawingId}`, {
@@ -649,27 +706,61 @@ class DrawingManager {
         if (!window.app || !window.app.graph || !window.app.graph._nodes) return;
         
         const nodesToConnect = [];
+        const allNodeIds = [];
+        
         window.app.graph._nodes.forEach(node => {
+            allNodeIds.push(`${node._original_id}(runtime:${node.id})`);
             if (node._pendingConnections && node._pendingConnections.length > 0) {
                 nodesToConnect.push(node);
             }
         });
         
         console.log(`Processing connections for ${nodesToConnect.length} nodes out of ${window.app.graph._nodes.length} total nodes`);
+        console.log(`Available nodes: ${allNodeIds.join(', ')}`);
+
+        let successfulConnections = 0;
+        let failedConnections = 0;
 
         nodesToConnect.forEach(node => {
+            console.log(`Node ${node._original_id}(runtime:${node.id}) has pending connections:`, node._pendingConnections);
+            
             node._pendingConnections.forEach(targetNodeId => {
-                const targetNode = window.app.graph._nodes.find(n => 
-                    n._original_id === targetNodeId || n.id.toString() === targetNodeId
-                );
+                // Since we now force IDs to match, we can use graph.getNodeById directly
+                const targetNode = window.app.graph.getNodeById(parseInt(targetNodeId));
+                
                 if (targetNode && node.outputs && node.outputs[0] && targetNode.inputs && targetNode.inputs[0]) {
-                    console.log(`Connecting node ${node._original_id || node.id} to node ${targetNode._original_id || targetNode.id}`);
+                    console.log(`✅ Connecting node ${node.id} to node ${targetNode.id}`);
                     node.connect(0, targetNode, 0);
+                    successfulConnections++;
                 } else {
-                    console.warn(`Failed to connect node ${node._original_id || node.id} to ${targetNodeId} - target not found or no input/output available`);
+                    console.warn(`❌ Failed to connect node ${node.id} to ${targetNodeId}`);
+                    if (!targetNode) {
+                        console.warn(`  - Target node ${targetNodeId} not found`);
+                    } else if (!node.outputs || !node.outputs[0]) {
+                        console.warn(`  - Source node has no outputs`);
+                    } else if (!targetNode.inputs || !targetNode.inputs[0]) {
+                        console.warn(`  - Target node has no inputs`);
+                    }
+                    failedConnections++;
                 }
             });
             delete node._pendingConnections;
+        });
+        
+        console.log(`Connection processing complete: ${successfulConnections} successful, ${failedConnections} failed`);
+        
+        // Validate connections after processing
+        console.log('🔍 Validating connections after processing:');
+        window.app.graph._nodes.forEach(node => {
+            if (node.outputs && node.outputs[0] && node.outputs[0].links) {
+                node.outputs[0].links.forEach(linkId => {
+                    const link = window.app.graph.links[linkId];
+                    if (link) {
+                        const targetNode = window.app.graph.getNodeById(link.target_id);
+                        console.log(`  ${node.id} -> ${link.target_id} ${targetNode ? '✅' : '❌'}`);
+                    }
+                });
+            }
         });
     }
 
