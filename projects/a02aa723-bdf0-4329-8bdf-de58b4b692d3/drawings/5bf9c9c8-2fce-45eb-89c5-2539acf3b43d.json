@@ -1,6 +1,6 @@
 {
-  "id": "4f249cfa-2816-4410-b903-ccb16d0048ea",
-  "project_id": "007b1ceb-1f2f-44fc-bdf6-0a14dd0fdbef",
+  "id": "5bf9c9c8-2fce-45eb-89c5-2539acf3b43d",
+  "project_id": "a02aa723-bdf0-4329-8bdf-de58b4b692d3",
   "name": "1",
   "nodes": [
     {
@@ -8,8 +8,8 @@
       "action_type": "move",
       "title": "移动",
       "pos": [
-        167,
-        205.59999084472656
+        185,
+        179.4000015258789
       ],
       "size": [
         210,
@@ -29,19 +29,18 @@
     },
     {
       "id": "2",
-      "action_type": "followimg",
-      "title": "跟随图像",
+      "action_type": "wait",
+      "title": "等待",
       "pos": [
-        484,
-        152
+        590,
+        207.4000015258789
       ],
       "size": [
-        160,
-        120
+        210,
+        58
       ],
       "params": {
-        "image_path": "uploads/20e9066b_account.png",
-        "confidence": 0.8
+        "duration": 1
       },
       "connections": []
     }
@@ -52,8 +51,7 @@
     "width": 1920,
     "height": 1080
   },
-  "created_at": "2025-09-05T11:34:46.276191",
-  "last_modified": "2025-09-05T11:36:31.904025",
-  "execution_history": [],
-  "last_executed": "2025-09-05T11:35:47.087881"
+  "created_at": "2025-09-09T11:25:32.406757",
+  "last_modified": "2025-09-09T11:27:39.032011",
+  "execution_history": []
 }

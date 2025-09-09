@@ -382,6 +382,7 @@ class DrawingManager {
                     this.processNodeConnections();
                     
                     // Force complete canvas and graph refresh to fix connection rendering issues
+                    const self = this; // Capture this reference for setTimeout callback
                     setTimeout(() => {
                         if (window.app.canvas && window.app.graph) {
                             console.log('🔄 Performing complete graph and canvas refresh...');
@@ -394,10 +395,22 @@ class DrawingManager {
                             window.app.canvas.setDirty(true, true);
                             window.app.canvas.draw(true, true);
                             window.app.canvas.setDirty(true, true);
+                            
+                            // Update node count in drawing data and refresh UI
+                            const actualNodeCount = window.app.graph._nodes ? window.app.graph._nodes.length : 0;
+                            drawing.node_count = actualNodeCount;
+                            self.drawings.set(drawingId, drawing);
+                            self.renderDrawingList();
+                            console.log(`✅ Updated node count to ${actualNodeCount} for drawing ${drawing.name}`);
                         }
                     }, 100);
                 } else {
                     console.log(`No nodes to load for drawing ${drawing.name} - ready for new nodes`);
+                    // Update node count for empty drawing
+                    drawing.node_count = 0;
+                    this.drawings.set(drawingId, drawing);
+                    this.renderDrawingList();
+                    console.log(`✅ Updated node count to 0 for empty drawing ${drawing.name}`);
                 }
                 
                 // Clear any node selection after loading
