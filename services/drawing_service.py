@@ -469,3 +469,176 @@ class DrawingService:
             condition_result = False
         
         node['_condition_result'] = condition_result
+
+    def start_all_drawings_execution(self, loop: bool = False, speed: float = 1.0):
+        """Start executing all drawings in the current project sequentially"""
+        from core.state import get_current_project
+        
+        active_project_id = get_current_project()
+        if not active_project_id:
+            raise ValueError("No active project")
+        
+        # Get all drawings for the current project
+        drawings_list = self.list_project_drawings(active_project_id)
+        if not drawings_list:
+            raise ValueError("No drawings found in current project")
+        
+        # Convert to dictionary format for compatibility
+        drawings = {drawing['id']: drawing for drawing in drawings_list}
+        
+        # Check if any drawing is already running
+        for drawing_id, drawing in drawings.items():
+            if drawing["execution_state"]["is_running"]:
+                raise ValueError(f"Drawing '{drawing['name']}' is already running")
+        
+        # Start execution of all drawings in sequence
+        import threading
+        from core.state import get_drawing_execution_state, update_drawing_execution_state
+        
+        def execute_all_drawings_thread():
+            print(f"DEBUG: Starting execution of all drawings - loop: {loop}, speed: {speed}")
+            
+            # Create a master execution state to track overall progress
+            master_state = {
+                "is_running": True,
+                "should_stop": False,
+                "status": "running",
+                "progress": 0,
+                "current_drawing": None,
+                "drawings_completed": 0,
+                "total_drawings": len(drawings)
+            }
+            
+            try:
+                while True:
+                    if master_state["should_stop"]:
+                        print("DEBUG: All drawings execution stopped by user")
+                        break
+                    
+                    drawings_completed = 0
+                    for i, (drawing_id, drawing) in enumerate(drawings.items()):
+                        if master_state["should_stop"]:
+                            break
+                        
+                        master_state["current_drawing"] = drawing["name"]
+                        master_state["progress"] = int((i / len(drawings)) * 100)
+                        
+                        print(f"DEBUG: Executing drawing {i+1}/{len(drawings)}: {drawing['name']}")
+                        
+                        # Execute this drawing
+                        try:
+                            self.start_drawing_execution(drawing_id, loop=False, speed=speed)
+                            
+                            # Wait for this drawing to complete
+                            while True:
+                                if master_state["should_stop"]:
+                                    break
+                                
+                                execution_state = get_drawing_execution_state(drawing_id)
+                                if not execution_state or not execution_state["is_running"]:
+                                    break
+                                
+                                time.sleep(0.5)
+                            
+                            drawings_completed += 1
+                            print(f"DEBUG: Completed drawing: {drawing['name']}")
+                            
+                        except Exception as e:
+                            print(f"ERROR: Failed to execute drawing {drawing['name']}: {e}")
+                            if not loop:  # If not looping, stop on error
+                                break
+                    
+                    master_state["drawings_completed"] = drawings_completed
+                    master_state["progress"] = 100
+                    
+                    if not loop or master_state["should_stop"]:
+                        break
+                    
+                    print("DEBUG: Restarting all drawings execution (loop mode)")
+                    time.sleep(1)
+                
+            except Exception as e:
+                print(f"ERROR: All drawings execution failed: {e}")
+                master_state["status"] = "error"
+            finally:
+                master_state["is_running"] = False
+                master_state["status"] = "completed" if not master_state["should_stop"] else "stopped"
+                print(f"DEBUG: All drawings execution finished - Status: {master_state['status']}")
+        
+        # Store the master state globally for tracking
+        import core.state as state
+        if not hasattr(state, 'all_drawings_execution_state'):
+            state.all_drawings_execution_state = {}
+        
+        state.all_drawings_execution_state = {
+            "is_running": True,
+            "should_stop": False,
+            "status": "starting",
+            "progress": 0,
+            "current_drawing": None,
+            "thread": None
+        }
+        
+        # Start the execution thread
+        thread = threading.Thread(target=execute_all_drawings_thread, daemon=True)
+        state.all_drawings_execution_state["thread"] = thread
+        thread.start()
+        
+        return {"message": "Started executing all drawings", "total_drawings": len(drawings)}
+
+    def stop_all_drawings_execution(self):
+        """Stop executing all drawings"""
+        import core.state as state
+        
+        if not hasattr(state, 'all_drawings_execution_state'):
+            raise ValueError("All drawings execution is not running")
+        
+        execution_state = state.all_drawings_execution_state
+        if not execution_state or not execution_state["is_running"]:
+            raise ValueError("All drawings execution is not running")
+        
+        # Stop the master execution
+        execution_state["should_stop"] = True
+        execution_state["status"] = "stopping"
+        
+        # Stop all individual drawings
+        drawings = self.list_drawings()
+        for drawing_id, drawing in drawings.items():
+            try:
+                if drawing["execution_state"]["is_running"]:
+                    self.stop_drawing_execution(drawing_id)
+            except Exception as e:
+                print(f"DEBUG: Failed to stop drawing {drawing_id}: {e}")
+        
+        # Wait for thread to complete
+        if execution_state.get("thread"):
+            execution_state["thread"].join(timeout=2)
+        
+        execution_state["is_running"] = False
+        execution_state["status"] = "stopped"
+        
+        return {"message": "Stopped all drawings execution"}
+
+    def get_all_drawings_execution_status(self):
+        """Get the status of all drawings execution"""
+        import core.state as state
+        
+        if not hasattr(state, 'all_drawings_execution_state') or not state.all_drawings_execution_state:
+            return {
+                "is_running": False,
+                "status": "idle",
+                "progress": 0,
+                "current_drawing": None,
+                "drawings_completed": 0,
+                "total_drawings": 0
+            }
+        
+        execution_state = state.all_drawings_execution_state
+        return {
+            "is_running": execution_state.get("is_running", False),
+            "status": execution_state.get("status", "idle"),
+            "progress": execution_state.get("progress", 0),
+            "current_drawing": execution_state.get("current_drawing"),
+            "drawings_completed": execution_state.get("drawings_completed", 0),
+            "total_drawings": execution_state.get("total_drawings", 0)
+        }

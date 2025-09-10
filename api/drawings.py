@@ -182,3 +182,36 @@ def set_drawing_boundary(drawing_id: str):
         return jsonify({"message": "Boundary set successfully"})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+@drawings_bp.route('/drawings/execute-all', methods=['POST'])
+def execute_all_drawings():
+    """Execute all drawings in the current project sequentially"""
+    data = request.get_json() or {}
+    loop = data.get('loop', False)
+    speed = data.get('speed', 1.0)
+    
+    try:
+        result = drawing_service.start_all_drawings_execution(loop, speed)
+        return jsonify(result)
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@drawings_bp.route('/drawings/execute-all', methods=['DELETE'])
+def stop_all_drawings_execution():
+    """Stop executing all drawings"""
+    try:
+        result = drawing_service.stop_all_drawings_execution()
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@drawings_bp.route('/drawings/execute-all/status', methods=['GET'])
+def get_all_drawings_execution_status():
+    """Get status of all drawings execution"""
+    try:
+        status = drawing_service.get_all_drawings_execution_status()
+        return jsonify(status)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500

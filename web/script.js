@@ -392,7 +392,8 @@ class CopilotNodeApp {
         document.getElementById('saveProject').addEventListener('click', () => this.saveProject());
 
         // Execution controls
-        document.getElementById('playBtn').addEventListener('click', () => this.startExecution());
+        document.getElementById('playCurrentBtn').addEventListener('click', () => this.startCurrentExecution());
+        document.getElementById('playAllBtn').addEventListener('click', () => this.startAllExecution());
         document.getElementById('stopBtn').addEventListener('click', () => this.stopExecution());
         
         // Speed slider
@@ -1394,35 +1395,19 @@ class CopilotNodeApp {
         };
     }
 
-    async startExecution() {
-        // First sync the graph data to backend
-        const graphData = this.exportGraphData();
-        
-        // Convert to backend-compatible format
-        const backendData = {
-            nodes: graphData.nodes.map(node => ({
-                ...node,
-                connections: node.connections.map(conn => 
-                    typeof conn === 'string' ? conn : conn.target_id
-                )
-            }))
-        };
-        
-        try {
-            // Send graph data to backend
-            await fetch('/api/nodes', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(backendData)
-            });
+    async startCurrentExecution() {
+        // Check if current drawing is selected
+        if (!window.drawingManager || !window.drawingManager.currentDrawingId) {
+            alert('请先选择要执行的画图');
+            return;
+        }
 
-            // Start execution
+        try {
+            // Execute the current drawing
             const loop = document.getElementById('loopCheck').checked;
             const speed = parseFloat(document.getElementById('speedSlider').value);
             
-            const response = await fetch('/api/execute', {
+            const response = await fetch(`/api/drawings/${window.drawingManager.currentDrawingId}/execute`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -1431,20 +1416,61 @@ class CopilotNodeApp {
             });
 
             if (response.ok) {
-                this.updateExecutionUI(true);
+                this.updateExecutionUI(true, 'current');
             } else {
                 const error = await response.json();
-                alert(`执行失败: ${error.error}`);
+                alert(`执行当前画图失败: ${error.error}`);
             }
         } catch (error) {
-            console.error('Execution error:', error);
-            alert('执行失败');
+            console.error('Current execution error:', error);
+            alert('执行当前画图失败');
+        }
+    }
+
+    async startAllExecution() {
+        // Check if there are any drawings in the current project
+        if (!window.drawingManager || !window.drawingManager.drawings || window.drawingManager.drawings.size === 0) {
+            alert('当前项目中没有画图，请先创建画图');
+            return;
+        }
+
+        try {
+            // Execute all drawings in the current project
+            const loop = document.getElementById('loopCheck').checked;
+            const speed = parseFloat(document.getElementById('speedSlider').value);
+            
+            const response = await fetch('/api/drawings/execute-all', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ loop, speed })
+            });
+
+            if (response.ok) {
+                this.updateExecutionUI(true, 'all');
+            } else {
+                const error = await response.json();
+                alert(`执行全部画图失败: ${error.error}`);
+            }
+        } catch (error) {
+            console.error('All execution error:', error);
+            alert('执行全部画图失败');
         }
     }
 
     async stopExecution() {
         try {
-            const response = await fetch('/api/execute', {
+            let endpoint = '/api/execute';
+            
+            // Use specific endpoint based on execution type
+            if (this.currentExecutionType === 'current' && window.drawingManager && window.drawingManager.currentDrawingId) {
+                endpoint = `/api/drawings/${window.drawingManager.currentDrawingId}/execute`;
+            } else if (this.currentExecutionType === 'all') {
+                endpoint = '/api/drawings/execute-all';
+            }
+            
+            const response = await fetch(endpoint, {
                 method: 'DELETE'
             });
 
@@ -1456,14 +1482,31 @@ class CopilotNodeApp {
         }
     }
 
-    updateExecutionUI(isRunning) {
-        const playBtn = document.getElementById('playBtn');
+    updateExecutionUI(isRunning, executionType = null) {
+        const playCurrentBtn = document.getElementById('playCurrentBtn');
+        const playAllBtn = document.getElementById('playAllBtn');
         const stopBtn = document.getElementById('stopBtn');
         
-        playBtn.disabled = isRunning;
+        playCurrentBtn.disabled = isRunning;
+        playAllBtn.disabled = isRunning;
         stopBtn.disabled = !isRunning;
         
-        if (!isRunning) {
+        if (isRunning && executionType) {
+            // Update button appearance to show which mode is running
+            if (executionType === 'current') {
+                playCurrentBtn.style.background = 'linear-gradient(135deg, rgba(255, 193, 7, 0.3), rgba(255, 193, 7, 0.2))';
+                playCurrentBtn.style.borderColor = 'rgba(255, 193, 7, 0.6)';
+            } else if (executionType === 'all') {
+                playAllBtn.style.background = 'linear-gradient(135deg, rgba(255, 193, 7, 0.3), rgba(255, 193, 7, 0.2))';
+                playAllBtn.style.borderColor = 'rgba(255, 193, 7, 0.6)';
+            }
+        } else if (!isRunning) {
+            // Reset button appearance
+            playCurrentBtn.style.background = '';
+            playCurrentBtn.style.borderColor = '';
+            playAllBtn.style.background = '';
+            playAllBtn.style.borderColor = '';
+            
             this.executionStatus = {
                 is_running: false,
                 status: "idle",
@@ -1473,6 +1516,9 @@ class CopilotNodeApp {
             };
             this.updateStatusPanel();
         }
+        
+        // Store execution type for status updates
+        this.currentExecutionType = isRunning ? executionType : null;
     }
 
     startStatusPolling() {
@@ -1490,7 +1536,11 @@ class CopilotNodeApp {
                 this.updateStatusPanel();
                 
                 // Update execution UI if status changed
-                if (!status.is_running && (document.getElementById('playBtn').disabled || document.getElementById('stopBtn').disabled === false)) {
+                const playCurrentBtn = document.getElementById('playCurrentBtn');
+                const playAllBtn = document.getElementById('playAllBtn');
+                const stopBtn = document.getElementById('stopBtn');
+                
+                if (!status.is_running && ((playCurrentBtn && playCurrentBtn.disabled) || (playAllBtn && playAllBtn.disabled) || (stopBtn && stopBtn.disabled === false))) {
                     this.updateExecutionUI(false);
                 }
             }

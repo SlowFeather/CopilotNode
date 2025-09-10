@@ -36,7 +36,10 @@
                 <div class="control-group execution-group">
                     <div class="group-label">执行</div>
                     <div class="control-items">
-                        <button id="playBtn" class="btn btn-primary">▶ 播放</button>
+                        <div class="play-buttons-group">
+                            <button id="playCurrentBtn" class="btn btn-primary" title="播放当前画图">▶ 当前</button>
+                            <button id="playAllBtn" class="btn btn-success" title="播放全部画图">▶▶ 全部</button>
+                        </div>
                         <button id="stopBtn" class="btn btn-danger" disabled>⏹ 停止</button>
                         <div class="execution-options">
                             <label class="loop-control">
