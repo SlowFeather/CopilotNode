@@ -22,8 +22,27 @@ def index():
 
 if __name__ == '__main__':
     import sys
+    import threading
+    import time
+    import webbrowser
+    
     port = int(sys.argv[1]) if len(sys.argv) > 1 else 5000
+    url = f"http://localhost:{port}"
+    
     print(f"CopilotNode Web Server starting...")
-    print(f"Open http://localhost:{port} in your browser")
+    print(f"Server URL: {url}")
+    
+    # Function to open browser after server starts
+    def open_browser():
+        time.sleep(1.5)  # Wait for server to start
+        try:
+            print(f"Opening browser: {url}")
+            webbrowser.open(url)
+        except Exception as e:
+            print(f"Could not open browser automatically: {e}")
+            print(f"Please manually open {url} in your browser")
+    
+    # Start browser opening in background thread
+    threading.Timer(1.5, open_browser).start()
     
     app.run(debug=True, host='0.0.0.0', port=port)
