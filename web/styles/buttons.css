@@ -1,0 +1,280 @@
+/* CopilotNode Web UI - Button Styles */
+
+/* Base Button Styles - Modern Glass Design */
+.btn {
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    outline: none;
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    backdrop-filter: blur(10px);
+    border: 1px solid transparent;
+    min-height: 32px;
+}
+
+.btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    filter: grayscale(0.5);
+}
+
+/* Button Variants */
+.btn-primary {
+    background: linear-gradient(135deg, rgba(74, 144, 226, 0.2), rgba(74, 144, 226, 0.15));
+    border: 1px solid rgba(74, 144, 226, 0.4);
+    color: rgba(74, 144, 226, 1);
+    box-shadow: 0 2px 8px rgba(74, 144, 226, 0.15);
+}
+
+.btn-primary:hover:not(:disabled) {
+    background: linear-gradient(135deg, rgba(74, 144, 226, 0.3), rgba(74, 144, 226, 0.2));
+    border-color: rgba(74, 144, 226, 0.6);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(74, 144, 226, 0.2);
+    color: rgba(74, 144, 226, 1);
+}
+
+.btn-secondary {
+    background: linear-gradient(135deg, rgba(108, 117, 125, 0.15), rgba(108, 117, 125, 0.1));
+    border: 1px solid rgba(108, 117, 125, 0.3);
+    color: var(--text-color);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.btn-secondary:hover:not(:disabled) {
+    background: linear-gradient(135deg, rgba(108, 117, 125, 0.25), rgba(108, 117, 125, 0.15));
+    border-color: rgba(108, 117, 125, 0.5);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.btn-danger {
+    background: linear-gradient(135deg, rgba(220, 53, 69, 0.15), rgba(220, 53, 69, 0.1));
+    border: 1px solid rgba(220, 53, 69, 0.4);
+    color: rgba(220, 53, 69, 1);
+    box-shadow: 0 2px 8px rgba(220, 53, 69, 0.15);
+}
+
+.btn-danger:hover:not(:disabled) {
+    background: linear-gradient(135deg, rgba(220, 53, 69, 0.25), rgba(220, 53, 69, 0.15));
+    border-color: rgba(220, 53, 69, 0.6);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(220, 53, 69, 0.2);
+}
+
+.btn-success {
+    background: linear-gradient(135deg, rgba(40, 167, 69, 0.15), rgba(40, 167, 69, 0.1));
+    border: 1px solid rgba(40, 167, 69, 0.4);
+    color: rgba(40, 167, 69, 1);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.btn-success:hover:not(:disabled) {
+    background: linear-gradient(135deg, rgba(40, 167, 69, 0.25), rgba(40, 167, 69, 0.15));
+    border-color: rgba(40, 167, 69, 0.6);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(40, 167, 69, 0.2);
+}
+
+/* Button Size Variants */
+.btn-small {
+    padding: 6px 12px;
+    font-size: 12px;
+    min-height: 28px;
+}
+
+/* Active state for all buttons */
+.btn:active:not(:disabled) {
+    transform: translateY(0);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+}
+
+/* Play Buttons Group */
+.play-buttons-group {
+    display: flex;
+    gap: 4px;
+    border-radius: 8px;
+    padding: 2px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.play-buttons-group .btn {
+    flex: 1;
+    min-width: 80px;
+    font-size: 13px;
+    font-weight: 600;
+    transition: all 0.2s ease;
+}
+
+.play-buttons-group .btn:first-child {
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+    border-right: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.play-buttons-group .btn:last-child {
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+}
+
+/* Panel Toggle Button */
+.panel-toggle-btn {
+    background: linear-gradient(135deg, rgba(108, 117, 125, 0.15), rgba(108, 117, 125, 0.1));
+    border: 1px solid rgba(108, 117, 125, 0.3);
+    color: var(--text-color);
+    border-radius: 4px;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-size: 12px;
+    padding: 0;
+}
+
+.panel-toggle-btn:hover {
+    background: linear-gradient(135deg, rgba(108, 117, 125, 0.25), rgba(108, 117, 125, 0.15));
+    border-color: rgba(108, 117, 125, 0.5);
+    transform: scale(1.05);
+}
+
+/* Special Create Drawing Button */
+#createDrawingBtn {
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    font-weight: bold;
+    border-radius: 50%;
+    box-shadow: 0 2px 8px rgba(74, 144, 226, 0.3);
+}
+
+#createDrawingBtn:hover {
+    transform: translateY(-1px) scale(1.05);
+    box-shadow: 0 4px 12px rgba(74, 144, 226, 0.4);
+}
+
+/* Drawing Action Buttons */
+.drawing-action-btn {
+    padding: 4px 8px;
+    border: none;
+    border-radius: 4px;
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.drawing-action-btn.play {
+    background-color: rgba(80, 200, 120, 0.2);
+    color: var(--success-color);
+}
+
+.drawing-action-btn.stop {
+    background-color: rgba(220, 53, 69, 0.2);
+    color: var(--danger-color);
+}
+
+.drawing-action-btn.delete {
+    background-color: rgba(220, 53, 69, 0.2);
+    color: var(--danger-color);
+}
+
+.drawing-action-btn:hover {
+    transform: scale(1.05);
+}
+
+/* Select Button */
+.select-button {
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    margin-top: 15px;
+    font-size: 14px;
+    transition: background-color 0.3s ease;
+}
+
+.select-button:hover {
+    background-color: #357abd;
+}
+
+.select-button:disabled {
+    background-color: var(--border-color);
+    cursor: not-allowed;
+}
+
+/* Close Button */
+.close-btn {
+    background: none;
+    border: none;
+    font-size: 24px;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 0;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+}
+
+.close-btn:hover {
+    background-color: var(--border-color);
+    color: var(--text-color);
+}
+
+/* Status Toggle Button */
+.status-toggle {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 12px;
+    transition: transform 0.3s ease;
+}
+
+/* Delete Image Button */
+.delete-image-btn {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    background-color: rgba(220, 53, 69, 0.8);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    opacity: 0;
+    z-index: 10;
+}
+
+.delete-image-btn:hover {
+    background-color: rgb(220, 53, 69);
+    transform: scale(1.1);
+}
+
+.delete-image-btn svg {
+    width: 14px;
+    height: 14px;
+}

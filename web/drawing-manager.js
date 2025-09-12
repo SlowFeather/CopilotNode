@@ -15,8 +15,8 @@ class DrawingManager {
         
         // Initialize properties panel state
         setTimeout(() => {
-            if (window.app && typeof window.app.updatePropertiesPanel === 'function') {
-                window.app.updatePropertiesPanel(null);
+            if (window.app && typeof window.app.nodeManager.updatePropertiesPanel === 'function') {
+                window.app.nodeManager.updatePropertiesPanel(null);
             }
         }, 100);
     }
@@ -372,7 +372,7 @@ class DrawingManager {
                     console.log(`🔧 Set graph node counter to: ${window.app.graph._last_node_id}`);
                     
                     sortedNodes.forEach(nodeData => {
-                        const loadedNode = window.app.loadNodeFromData(nodeData);
+                        const loadedNode = window.app.nodeManager.loadNodeFromData(nodeData);
                         if (!loadedNode) {
                             console.warn('Failed to load node:', nodeData);
                         }
@@ -418,7 +418,7 @@ class DrawingManager {
                     window.app.canvas.deselectAllNodes();
                     window.app.selectedNode = null;
                     window.app.selectedNodes.clear();
-                    window.app.updatePropertiesPanel(null);
+                    window.app.nodeManager.updatePropertiesPanel(null);
                     console.log('Cleared node selection after drawing switch');
                 }
                 
@@ -436,8 +436,8 @@ class DrawingManager {
             }
 
             // Update properties panel to show drawing selected state
-            if (window.app && typeof window.app.updatePropertiesPanel === 'function') {
-                window.app.updatePropertiesPanel(null); // Pass null to show drawing state
+            if (window.app && typeof window.app.nodeManager.updatePropertiesPanel === 'function') {
+                window.app.nodeManager.updatePropertiesPanel(null); // Pass null to show drawing state
             }
 
             this.renderDrawingList();
@@ -689,7 +689,7 @@ class DrawingManager {
                 console.log(`💾 Saving ${window.app.graph._nodes.length} nodes from graph:`);
                 window.app.graph._nodes.forEach(node => {
                     console.log(`  📝 Processing node ${node.id} (${node.title})`);
-                    nodes.push(window.app.serializeNodeToData(node));
+                    nodes.push(window.app.nodeManager.serializeNodeToData(node));
                 });
                 console.log(`💾 Total serialized nodes: ${nodes.length}`);
             }
@@ -856,8 +856,8 @@ class DrawingManager {
         if (window.app) {
             window.app.graph.clear();
             // Update properties panel to show no drawing state
-            if (typeof window.app.updatePropertiesPanel === 'function') {
-                window.app.updatePropertiesPanel(null);
+            if (typeof window.app.nodeManager.updatePropertiesPanel === 'function') {
+                window.app.nodeManager.updatePropertiesPanel(null);
             }
         }
         

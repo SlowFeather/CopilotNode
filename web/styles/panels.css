@@ -1,0 +1,405 @@
+/* CopilotNode Web UI - Panel Styles */
+
+/* Node Panel */
+.node-panel {
+    width: var(--panel-width);
+    background-color: var(--surface-color);
+    border-right: 1px solid var(--border-color);
+    overflow-y: auto;
+    flex-shrink: 0;
+}
+
+.node-panel h3 {
+    padding: 15px 20px;
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    border-bottom: 1px solid var(--border-color);
+    background-color: var(--background-color);
+}
+
+/* Current Drawing Indicator */
+.current-drawing-indicator {
+    background: rgba(80, 200, 120, 0.1);
+    border: 1px solid rgba(80, 200, 120, 0.3);
+    border-radius: 6px;
+    padding: 10px 12px;
+    margin: 15px;
+    font-size: 12px;
+}
+
+.indicator-content {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.indicator-label {
+    color: var(--text-muted);
+    font-weight: 500;
+}
+
+.indicator-value {
+    color: var(--success-color);
+    font-weight: 600;
+    background: rgba(80, 200, 120, 0.2);
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 11px;
+}
+
+/* Tips and Warnings */
+.multi-select-tips {
+    background: rgba(74, 144, 226, 0.1);
+    border: 1px solid rgba(74, 144, 226, 0.3);
+    border-radius: 4px;
+    padding: 12px;
+    margin: 15px;
+    font-size: 11px;
+    line-height: 1.5;
+    color: var(--text-muted);
+}
+
+.warning-tips {
+    background: rgba(243, 156, 18, 0.1) !important;
+    border: 1px solid rgba(243, 156, 18, 0.3) !important;
+    color: var(--warning-color) !important;
+}
+
+.warning-tips strong {
+    color: var(--warning-color) !important;
+}
+
+.multi-select-tips strong {
+    color: var(--primary-color);
+    display: block;
+    margin-bottom: 6px;
+    font-size: 12px;
+}
+
+/* Node Categories */
+.node-categories {
+    padding: 15px;
+}
+
+.node-category {
+    margin-bottom: 20px;
+}
+
+.node-category h4 {
+    font-size: 14px;
+    color: var(--text-muted);
+    margin-bottom: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.node-item {
+    padding: 10px 12px;
+    background-color: var(--background-color);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    margin-bottom: 8px;
+    cursor: grab;
+    font-size: 14px;
+    transition: all 0.2s ease;
+    user-select: none;
+}
+
+.node-item:hover {
+    background-color: #3a3a3a;
+    border-color: var(--primary-color);
+    transform: translateX(2px);
+}
+
+.node-item:active {
+    cursor: grabbing;
+}
+
+/* Status Panel */
+.status-panel {
+    position: absolute;
+    bottom: 20px;
+    left: 20px;
+    right: calc(var(--panel-width) + 40px);
+    background-color: var(--surface-color);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    max-height: 200px;
+    transition: all 0.3s ease;
+    z-index: 100;
+}
+
+.status-panel.collapsed .status-content {
+    display: none;
+}
+
+.status-panel.collapsed .status-toggle {
+    transform: rotate(180deg);
+}
+
+.status-header {
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    background-color: var(--background-color);
+    border-radius: 8px 8px 0 0;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.status-header:hover {
+    background-color: #2a2a2a;
+}
+
+.status-content {
+    padding: 16px;
+    max-height: 150px;
+    overflow-y: auto;
+}
+
+.status-item {
+    display: flex;
+    align-items: center;
+    margin-bottom: 8px;
+    font-size: 14px;
+}
+
+.status-label {
+    min-width: 80px;
+    color: var(--text-muted);
+    font-weight: 500;
+}
+
+.status-value {
+    color: var(--text-color);
+    font-weight: 400;
+}
+
+.error-text {
+    color: var(--danger-color);
+}
+
+.progress-bar {
+    flex: 1;
+    height: 20px;
+    background-color: var(--background-color);
+    border-radius: 10px;
+    overflow: hidden;
+    position: relative;
+    margin-left: 10px;
+    border: 1px solid var(--border-color);
+}
+
+.progress-fill {
+    height: 100%;
+    background-color: var(--success-color);
+    transition: width 0.3s ease;
+    width: 0%;
+}
+
+.progress-text {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-color);
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+}
+
+/* Properties Panel */
+.properties-panel {
+    width: var(--panel-width);
+    background-color: var(--surface-color);
+    border-left: 1px solid var(--border-color);
+    overflow-y: auto;
+    flex-shrink: 0;
+}
+
+.properties-panel h3 {
+    padding: 15px 20px;
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    border-bottom: 1px solid var(--border-color);
+    background-color: var(--background-color);
+}
+
+.properties-content {
+    padding: 20px;
+}
+
+.no-selection {
+    color: var(--text-muted);
+    text-align: center;
+    padding: 40px 20px;
+    font-style: italic;
+}
+
+.no-node-selection {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    text-align: center;
+    color: var(--primary-color);
+    background: linear-gradient(135deg, rgba(74, 144, 226, 0.1), rgba(74, 144, 226, 0.05));
+    border: 1px solid rgba(74, 144, 226, 0.2);
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    margin: 20px;
+}
+
+.property-group {
+    margin-bottom: 20px;
+}
+
+.property-label {
+    display: block;
+    margin-bottom: 5px;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-muted);
+}
+
+.property-input {
+    width: 100%;
+    padding: 8px 12px;
+    background-color: var(--background-color);
+    border: 1px solid var(--border-color);
+    color: var(--text-color);
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.property-input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+}
+
+.property-row {
+    display: flex;
+    gap: 10px;
+}
+
+.property-row .property-input {
+    flex: 1;
+}
+
+/* Drawing Boundary Section in Properties Panel */
+.drawing-boundary-section {
+    padding: 15px 20px;
+    border-top: 1px solid var(--border-color);
+}
+
+.properties-divider {
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--border-color), transparent);
+    margin: 10px 0;
+}
+
+.boundary-title {
+    color: var(--primary-color);
+    font-size: 14px;
+    font-weight: 600;
+    margin: 0 0 8px 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.boundary-title::before {
+    content: "📐";
+    font-size: 16px;
+}
+
+.boundary-description {
+    color: var(--text-muted);
+    margin-bottom: 15px;
+}
+
+.boundary-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.boundary-inputs {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.input-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.boundary-label {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-color);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.boundary-input {
+    padding: 8px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    background: var(--background-color);
+    color: var(--text-color);
+    font-size: 13px;
+    transition: all 0.2s ease;
+}
+
+.boundary-input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    background: rgba(74, 144, 226, 0.05);
+    box-shadow: 0 0 0 2px rgba(74, 144, 226, 0.1);
+}
+
+.boundary-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.boundary-buttons .btn-small {
+    padding: 8px 12px;
+    font-size: 12px;
+    width: 100%;
+}
+
+.input-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.input-row label {
+    font-size: 12px;
+    color: var(--text-muted);
+    min-width: 20px;
+}
+
+.input-row input {
+    flex: 1;
+    padding: 6px 8px;
+    background-color: var(--background-color);
+    border: 1px solid var(--border-color);
+    color: var(--text-color);
+    border-radius: 4px;
+    font-size: 12px;
+}
+
+.input-row input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+}

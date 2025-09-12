@@ -1,0 +1,89 @@
+/* CopilotNode Web UI - Responsive Styles */
+
+/* Medium screens (tablets) */
+@media (max-width: 1200px) {
+    :root {
+        --panel-width: 200px;
+    }
+    
+    .header-brand h1 {
+        font-size: 20px;
+    }
+    
+    .header-controls {
+        gap: 16px;
+    }
+    
+    .speed-control input[type="range"] {
+        width: 50px;
+    }
+    
+    .compact-status-panel {
+        min-width: 250px;
+    }
+}
+
+/* Small screens (landscape phones/small tablets) */
+@media (max-width: 900px) {
+    .header {
+        grid-template-columns: 1fr;
+        grid-template-areas: 
+            "brand"
+            "controls"
+            "status";
+        gap: 12px;
+        padding: 12px 15px;
+    }
+    
+    .header-brand {
+        justify-content: center;
+    }
+    
+    .header-controls {
+        gap: 12px;
+    }
+    
+    .control-group {
+        gap: 6px;
+    }
+}
+
+/* Mobile screens */
+@media (max-width: 768px) {
+    .header {
+        padding: 10px 15px;
+        gap: 10px;
+    }
+    
+    .header-brand h1 {
+        font-size: 18px;
+    }
+    
+    .header-controls {
+        gap: 8px;
+    }
+    
+    .execution-options {
+        flex-direction: column;
+        gap: 6px;
+        margin-left: 0;
+    }
+    
+    .control-items {
+        gap: 6px;
+    }
+    
+    .main-content {
+        flex-direction: column;
+    }
+    
+    .node-panel, .properties-panel {
+        width: 100%;
+        height: 200px;
+    }
+    
+    .status-panel {
+        left: 10px;
+        right: 10px;
+    }
+}
