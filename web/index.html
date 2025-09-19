@@ -23,6 +23,9 @@
             <!-- Brand Section -->
             <div class="header-brand">
                 <h1>CopilotNode Web</h1>
+                <div class="screen-resolution" id="screenResolution">
+                    当前屏幕分辨率：<span id="resolutionValue">加载中...</span>
+                </div>
             </div>
 
             <!-- Controls Section -->
@@ -275,8 +278,8 @@
                         <input type="number" id="newDrawingY" class="property-input" placeholder="Y坐标" value="0">
                     </div>
                     <div class="property-row">
-                        <input type="number" id="newDrawingWidth" class="property-input" placeholder="宽度" value="1920">
-                        <input type="number" id="newDrawingHeight" class="property-input" placeholder="高度" value="1080">
+                        <input type="number" id="newDrawingWidth" class="property-input" placeholder="宽度" value="">
+                        <input type="number" id="newDrawingHeight" class="property-input" placeholder="高度" value="">
                     </div>
                 </div>
                 <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px;">
@@ -332,7 +335,7 @@
         document.addEventListener('DOMContentLoaded', () => {
             console.log('DOM Content Loaded');
             console.log('DrawingManager available:', typeof DrawingManager !== 'undefined');
-            
+
             // Initialize drawing manager immediately
             if (typeof DrawingManager !== 'undefined') {
                 window.drawingManager = new DrawingManager();
@@ -340,6 +343,23 @@
             } else {
                 console.error('DrawingManager not available in DOM ready');
             }
+
+            // Update screen resolution display
+            updateScreenResolution();
+        });
+
+        function updateScreenResolution() {
+            const resolutionElement = document.getElementById('resolutionValue');
+            if (resolutionElement) {
+                const width = screen.width;
+                const height = screen.height;
+                resolutionElement.textContent = `${width} × ${height}`;
+            }
+        }
+
+        // Update resolution when window is resized (for responsive scenarios)
+        window.addEventListener('resize', () => {
+            setTimeout(updateScreenResolution, 100);
         });
     </script>
     

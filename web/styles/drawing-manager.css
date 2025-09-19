@@ -203,6 +203,56 @@
     margin-top: 8px;
 }
 
+.drawing-action-btn {
+    padding: 4px 8px;
+    border: 1px solid var(--border-color);
+    background: var(--surface-color);
+    color: var(--text-color);
+    font-size: 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    min-width: 28px;
+    text-align: center;
+}
+
+.drawing-action-btn:hover {
+    background: var(--primary-color);
+    color: white;
+    border-color: var(--primary-color);
+}
+
+.drawing-action-btn.play {
+    background: var(--success-color);
+    border-color: var(--success-color);
+    color: white;
+}
+
+.drawing-action-btn.stop {
+    background: var(--danger-color);
+    border-color: var(--danger-color);
+    color: white;
+}
+
+.drawing-action-btn.delete {
+    background: var(--danger-color);
+    border-color: var(--danger-color);
+    color: white;
+}
+
+.drawing-action-btn.move-up,
+.drawing-action-btn.move-down {
+    background: var(--warning-color);
+    border-color: var(--warning-color);
+    color: white;
+}
+
+.drawing-action-btn.copy {
+    background: var(--info-color);
+    border-color: var(--info-color);
+    color: white;
+}
+
 /* Boundary Section */
 .boundary-section h4 {
     margin: 0 0 10px 0;
