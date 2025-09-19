@@ -298,6 +298,7 @@ def list_project_drawings(project_id: str) -> List[Dict[str, Any]]:
                     "last_modified": drawing.get("last_modified"),
                     "order": drawing.get("order", 0),  # Include order field
                     "node_count": len(drawing.get("nodes", [])),
+                    "boundary": drawing.get("boundary"),
                     "execution_state": drawing.get("execution_state", {})
                 })
 
