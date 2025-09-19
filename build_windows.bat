@@ -160,10 +160,17 @@ if exist "copilot_node.spec" (
     echo [INFO] Using existing copilot_node.spec file for packaging...
     echo [%date% %time%] Using copilot_node.spec file for packaging >> "%LOG_FILE%"
     pyinstaller copilot_node.spec --clean 2>>"%LOG_FILE%"
+    
+    REM If spec file packaging fails, try alternative method
+    if %errorlevel% neq 0 (
+        echo [WARNING] Spec file packaging failed, trying alternative method...
+        echo [%date% %time%] Spec file packaging failed, trying onefile method >> "%LOG_FILE%"
+        pyinstaller --onefile --console --name="CopilotNode" --add-data="web;web" --add-data="core;core" --add-data="api;api" --hidden-import="flask" --hidden-import="flask_cors" --hidden-import="cv2" --hidden-import="PIL" --hidden-import="pyautogui" --hidden-import="ctypes" --hidden-import="_ctypes" --hidden-import="ctypes.wintypes" --collect-all="ctypes" app.py 2>>"%LOG_FILE%"
+    )
 ) else (
     echo [INFO] copilot_node.spec not found, using app.py for packaging...
     echo [%date% %time%] Using app.py for packaging >> "%LOG_FILE%"
-    pyinstaller --onefile --windowed --name="CopilotNode" --add-data="web;web" --add-data="core;core" --add-data="api;api" app.py 2>>"%LOG_FILE%"
+    pyinstaller --onefile --console --name="CopilotNode" --add-data="web;web" --add-data="core;core" --add-data="api;api" --hidden-import="flask" --hidden-import="flask_cors" --hidden-import="cv2" --hidden-import="PIL" --hidden-import="pyautogui" --hidden-import="ctypes" --hidden-import="_ctypes" --hidden-import="ctypes.wintypes" --collect-all="ctypes" app.py 2>>"%LOG_FILE%"
 )
 
 if %errorlevel% neq 0 (

@@ -482,7 +482,10 @@ class DrawingService:
         drawings_list = self.list_project_drawings(active_project_id)
         if not drawings_list:
             raise ValueError("No drawings found in current project")
-        
+
+        # Sort drawings by order field to ensure consistent execution order
+        drawings_list.sort(key=lambda x: x.get('order', 0))
+
         # Convert to dictionary format for compatibility
         drawings = {drawing['id']: drawing for drawing in drawings_list}
         
@@ -506,7 +509,7 @@ class DrawingService:
                 "progress": 0,
                 "current_drawing": None,
                 "drawings_completed": 0,
-                "total_drawings": len(drawings)
+                "total_drawings": len(drawings_list)
             }
             
             try:
@@ -516,15 +519,16 @@ class DrawingService:
                         break
                     
                     drawings_completed = 0
-                    for i, (drawing_id, drawing) in enumerate(drawings.items()):
+                    for i, drawing in enumerate(drawings_list):
                         if master_state["should_stop"]:
                             break
                         
+                        drawing_id = drawing["id"]
                         master_state["current_drawing"] = drawing["name"]
-                        master_state["progress"] = int((i / len(drawings)) * 100)
-                        
-                        print(f"DEBUG: Executing drawing {i+1}/{len(drawings)}: {drawing['name']}")
-                        
+                        master_state["progress"] = int((i / len(drawings_list)) * 100)
+
+                        print(f"DEBUG: Executing drawing {i+1}/{len(drawings_list)}: {drawing['name']}")
+
                         # Execute this drawing
                         try:
                             self.start_drawing_execution(drawing_id, loop=False, speed=speed)
@@ -584,7 +588,7 @@ class DrawingService:
         state.all_drawings_execution_state["thread"] = thread
         thread.start()
         
-        return {"message": "Started executing all drawings", "total_drawings": len(drawings)}
+        return {"message": "Started executing all drawings", "total_drawings": len(drawings_list)}
 
     def stop_all_drawings_execution(self):
         """Stop executing all drawings"""
