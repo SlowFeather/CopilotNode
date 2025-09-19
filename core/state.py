@@ -143,26 +143,31 @@ def delete_project(project_id: str) -> bool:
 def create_drawing(project_id: str, name: str, nodes: list = None, boundary: Dict[str, int] = None) -> str:
     """Create a new drawing in a project"""
     from core.config import PROJECTS_DIR, DRAWINGS_SUBDIR
-    
+
     drawing_id = str(uuid.uuid4())
     drawings_dir = os.path.join(PROJECTS_DIR, project_id, DRAWINGS_SUBDIR)
-    
+
     if not os.path.exists(drawings_dir):
         os.makedirs(drawings_dir, exist_ok=True)
-    
+
+    # Calculate next order number
+    existing_drawings = list_project_drawings(project_id)
+    next_order = max([d.get('order', 0) for d in existing_drawings], default=0) + 1
+
     default_boundary = {
         "x": 0,
-        "y": 0, 
+        "y": 0,
         "width": 1920,
         "height": 1080
     }
-    
+
     drawing_data = {
         "id": drawing_id,
         "project_id": project_id,
         "name": name,
         "nodes": nodes or [],
         "boundary": boundary or default_boundary,
+        "order": next_order,
         "created_at": datetime.now().isoformat(),
         "last_modified": datetime.now().isoformat(),
         "execution_history": []
@@ -274,13 +279,13 @@ def save_drawing_to_file(drawing_id: str) -> bool:
 def list_project_drawings(project_id: str) -> List[Dict[str, Any]]:
     """List all drawings in a project"""
     from core.config import PROJECTS_DIR, DRAWINGS_SUBDIR
-    
+
     drawings = []
     drawings_dir = os.path.join(PROJECTS_DIR, project_id, DRAWINGS_SUBDIR)
-    
+
     if not os.path.exists(drawings_dir):
         return drawings
-    
+
     for filename in os.listdir(drawings_dir):
         if filename.endswith('.json'):
             drawing_id = filename[:-5]  # Remove .json extension
@@ -291,11 +296,13 @@ def list_project_drawings(project_id: str) -> List[Dict[str, Any]]:
                     "name": drawing["name"],
                     "created_at": drawing.get("created_at"),
                     "last_modified": drawing.get("last_modified"),
+                    "order": drawing.get("order", 0),  # Include order field
                     "node_count": len(drawing.get("nodes", [])),
                     "execution_state": drawing.get("execution_state", {})
                 })
-    
-    return sorted(drawings, key=lambda x: x.get('last_modified', ''), reverse=True)
+
+    # Sort by order field (ascending), with fallback to last_modified for drawings without order
+    return sorted(drawings, key=lambda x: (x.get('order', 999999), x.get('last_modified', '')))
 
 def get_all_drawings() -> Dict[str, Dict[str, Any]]:
     """Get all active drawings (for backward compatibility)"""
@@ -368,6 +375,219 @@ def get_drawing_boundary(drawing_id: str) -> Optional[Dict[str, int]]:
     if drawing:
         return drawing.get("boundary", {}).copy()
     return None
+
+def reorder_drawing(project_id: str, drawing_id: str, new_order: int) -> bool:
+    """Reorder a drawing in a project"""
+    try:
+        drawings_list = list_project_drawings(project_id)
+
+        # Create a map to track order changes
+        order_changes = {}
+
+        # Initialize order field for drawings that don't have it
+        for i, drawing_info in enumerate(drawings_list):
+            if 'order' not in drawing_info:
+                order_changes[drawing_info['id']] = i + 1
+
+        target_drawing_info = None
+
+        # Find the target drawing
+        for drawing_info in drawings_list:
+            if drawing_info['id'] == drawing_id:
+                target_drawing_info = drawing_info
+                break
+
+        if not target_drawing_info:
+            return False
+
+        old_order = target_drawing_info.get('order', 0)
+
+        # Adjust orders of other drawings
+        for drawing_info in drawings_list:
+            if drawing_info['id'] == drawing_id:
+                continue
+
+            current_order = drawing_info.get('order', 0)
+
+            if old_order < new_order:
+                # Moving down: shift up drawings between old and new position
+                if old_order < current_order <= new_order:
+                    order_changes[drawing_info['id']] = current_order - 1
+            else:
+                # Moving up: shift down drawings between new and old position
+                if new_order <= current_order < old_order:
+                    order_changes[drawing_info['id']] = current_order + 1
+
+        # Set new order for target drawing
+        order_changes[drawing_id] = new_order
+
+        # Apply order changes to full drawing objects and save
+        for drawing_info in drawings_list:
+            drawing_id_to_update = drawing_info['id']
+            if drawing_id_to_update in order_changes:
+                # Get the full drawing object
+                full_drawing = get_drawing(drawing_id_to_update)
+                if full_drawing:
+                    # Update order and last_modified
+                    full_drawing['order'] = order_changes[drawing_id_to_update]
+                    full_drawing['last_modified'] = datetime.now().isoformat()
+
+                    # Save the full drawing object
+                    from core.config import PROJECTS_DIR, DRAWINGS_SUBDIR
+                    drawings_dir = os.path.join(PROJECTS_DIR, project_id, DRAWINGS_SUBDIR)
+                    drawing_path = os.path.join(drawings_dir, f"{drawing_id_to_update}.json")
+
+                    # Remove execution_state before saving to file
+                    drawing_to_save = full_drawing.copy()
+                    if "execution_state" in drawing_to_save:
+                        del drawing_to_save["execution_state"]
+
+                    with open(drawing_path, 'w', encoding='utf-8') as f:
+                        json.dump(drawing_to_save, f, ensure_ascii=False, indent=2)
+
+                    # Update memory cache with full object
+                    with drawings_lock:
+                        if drawing_id_to_update in active_drawings:
+                            active_drawings[drawing_id_to_update].update(full_drawing)
+
+        return True
+
+    except Exception as e:
+        print(f"Error reordering drawing: {e}")
+        return False
+
+def copy_drawing(project_id: str, source_drawing_id: str, new_name: str = None) -> Optional[str]:
+    """Copy a drawing within the same project"""
+    try:
+        source_drawing = get_drawing(source_drawing_id)
+        if not source_drawing or source_drawing.get('project_id') != project_id:
+            return None
+
+        # Generate new name if not provided
+        if not new_name:
+            new_name = f"{source_drawing['name']} - 副本"
+
+        # Create new drawing with copied data
+        new_drawing_id = create_drawing(
+            project_id=project_id,
+            name=new_name,
+            nodes=source_drawing.get('nodes', []).copy(),
+            boundary=source_drawing.get('boundary', {}).copy()
+        )
+
+        return new_drawing_id
+
+    except Exception as e:
+        print(f"Error copying drawing: {e}")
+        return None
+
+def move_drawing_up(project_id: str, drawing_id: str) -> bool:
+    """Move a drawing up one position"""
+    try:
+        drawings = list_project_drawings(project_id)
+
+        # Initialize order field for drawings that don't have it
+        for i, drawing in enumerate(drawings):
+            if 'order' not in drawing:
+                # Get full drawing object and update it
+                full_drawing = get_drawing(drawing['id'])
+                if full_drawing:
+                    full_drawing['order'] = i + 1
+                    full_drawing['last_modified'] = datetime.now().isoformat()
+
+                    # Save the full drawing with order field
+                    from core.config import PROJECTS_DIR, DRAWINGS_SUBDIR
+                    drawings_dir = os.path.join(PROJECTS_DIR, project_id, DRAWINGS_SUBDIR)
+                    drawing_path = os.path.join(drawings_dir, f"{drawing['id']}.json")
+
+                    # Remove execution_state before saving
+                    drawing_to_save = full_drawing.copy()
+                    if "execution_state" in drawing_to_save:
+                        del drawing_to_save["execution_state"]
+
+                    with open(drawing_path, 'w', encoding='utf-8') as f:
+                        json.dump(drawing_to_save, f, ensure_ascii=False, indent=2)
+
+                    # Update memory cache
+                    with drawings_lock:
+                        if drawing['id'] in active_drawings:
+                            active_drawings[drawing['id']].update(full_drawing)
+
+        drawings.sort(key=lambda x: x.get('order', 0))
+
+        # Find current position
+        current_index = None
+        for i, drawing in enumerate(drawings):
+            if drawing['id'] == drawing_id:
+                current_index = i
+                break
+
+        if current_index is None or current_index == 0:
+            return False  # Already at top or not found
+
+        # Swap orders with previous drawing
+        current_order = drawings[current_index].get('order', 0)
+        prev_order = drawings[current_index - 1].get('order', 0)
+
+        return reorder_drawing(project_id, drawing_id, prev_order)
+
+    except Exception as e:
+        print(f"Error moving drawing up: {e}")
+        return False
+
+def move_drawing_down(project_id: str, drawing_id: str) -> bool:
+    """Move a drawing down one position"""
+    try:
+        drawings = list_project_drawings(project_id)
+
+        # Initialize order field for drawings that don't have it
+        for i, drawing in enumerate(drawings):
+            if 'order' not in drawing:
+                # Get full drawing object and update it
+                full_drawing = get_drawing(drawing['id'])
+                if full_drawing:
+                    full_drawing['order'] = i + 1
+                    full_drawing['last_modified'] = datetime.now().isoformat()
+
+                    # Save the full drawing with order field
+                    from core.config import PROJECTS_DIR, DRAWINGS_SUBDIR
+                    drawings_dir = os.path.join(PROJECTS_DIR, project_id, DRAWINGS_SUBDIR)
+                    drawing_path = os.path.join(drawings_dir, f"{drawing['id']}.json")
+
+                    # Remove execution_state before saving
+                    drawing_to_save = full_drawing.copy()
+                    if "execution_state" in drawing_to_save:
+                        del drawing_to_save["execution_state"]
+
+                    with open(drawing_path, 'w', encoding='utf-8') as f:
+                        json.dump(drawing_to_save, f, ensure_ascii=False, indent=2)
+
+                    # Update memory cache
+                    with drawings_lock:
+                        if drawing['id'] in active_drawings:
+                            active_drawings[drawing['id']].update(full_drawing)
+
+        drawings.sort(key=lambda x: x.get('order', 0))
+
+        # Find current position
+        current_index = None
+        for i, drawing in enumerate(drawings):
+            if drawing['id'] == drawing_id:
+                current_index = i
+                break
+
+        if current_index is None or current_index == len(drawings) - 1:
+            return False  # Already at bottom or not found
+
+        # Swap orders with next drawing
+        current_order = drawings[current_index].get('order', 0)
+        next_order = drawings[current_index + 1].get('order', 0)
+
+        return reorder_drawing(project_id, drawing_id, next_order)
+
+    except Exception as e:
+        print(f"Error moving drawing down: {e}")
+        return False
 
 # Legacy compatibility functions
 def reset_execution_state():

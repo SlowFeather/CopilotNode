@@ -1,5 +1,6 @@
 from flask import Blueprint, jsonify, request
 from services.drawing_service import DrawingService
+from core.state import move_drawing_up, move_drawing_down, copy_drawing, get_current_project
 from typing import Dict, Any
 
 drawings_bp = Blueprint('drawings', __name__, url_prefix='/api')
@@ -7,29 +8,29 @@ drawing_service = DrawingService()
 
 @drawings_bp.route('/drawings', methods=['GET'])
 def list_drawings():
-    """Get list of all drawings"""
+    """Get list of all drawings in the current project"""
     try:
-        drawings = drawing_service.list_drawings()
+        project_id = get_current_project()
+        print(f"DEBUG: get_current_project() returned: {project_id}")
+
+        if not project_id:
+            print("DEBUG: No active project found")
+            return jsonify({"error": "No active project"}), 400
+
+        print(f"DEBUG: Getting drawings for project: {project_id}")
+        drawings_list = drawing_service.list_project_drawings(project_id)
+        print(f"DEBUG: Got {len(drawings_list)} drawings")
+
+        for drawing in drawings_list:
+            print(f"DEBUG: Drawing - Name: {drawing.get('name')}, ID: {drawing.get('id', '')[:8]}..., Order: {drawing.get('order', 'None')}")
+
         return jsonify({
-            "drawings": [
-                {
-                    "id": drawing_id,
-                    "name": drawing["name"],
-                    "created_at": drawing.get("created_at"),
-                    "last_executed": drawing.get("last_executed"),
-                    "boundary": drawing.get("boundary"),
-                    "node_count": len(drawing.get("nodes", [])),
-                    "execution_state": {
-                        "is_running": drawing["execution_state"]["is_running"],
-                        "status": drawing["execution_state"]["status"],
-                        "progress": drawing["execution_state"]["progress"]
-                        # Exclude 'thread' and other non-serializable fields
-                    }
-                }
-                for drawing_id, drawing in drawings.items()
-            ]
+            "drawings": drawings_list
         })
     except Exception as e:
+        print(f"ERROR in list_drawings: {e}")
+        import traceback
+        print(f"ERROR traceback: {traceback.format_exc()}")
         return jsonify({"error": str(e)}), 500
 
 @drawings_bp.route('/drawings', methods=['POST'])
@@ -213,5 +214,67 @@ def get_all_drawings_execution_status():
     try:
         status = drawing_service.get_all_drawings_execution_status()
         return jsonify(status)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@drawings_bp.route('/drawings/<drawing_id>/move-up', methods=['POST'])
+def move_drawing_up_api(drawing_id: str):
+    """Move a drawing up one position"""
+    try:
+        project_id = get_current_project()
+        if not project_id:
+            return jsonify({"error": "No active project"}), 400
+
+        print(f"DEBUG: Moving drawing {drawing_id} up in project {project_id}")
+        success = move_drawing_up(project_id, drawing_id)
+        print(f"DEBUG: Move up result: {success}")
+
+        if success:
+            return jsonify({"message": "Drawing moved up successfully"})
+        else:
+            return jsonify({"error": "Cannot move drawing up (already at top or not found)"}), 400
+    except Exception as e:
+        print(f"ERROR: Move up API error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@drawings_bp.route('/drawings/<drawing_id>/move-down', methods=['POST'])
+def move_drawing_down_api(drawing_id: str):
+    """Move a drawing down one position"""
+    try:
+        project_id = get_current_project()
+        if not project_id:
+            return jsonify({"error": "No active project"}), 400
+
+        print(f"DEBUG: Moving drawing {drawing_id} down in project {project_id}")
+        success = move_drawing_down(project_id, drawing_id)
+        print(f"DEBUG: Move down result: {success}")
+
+        if success:
+            return jsonify({"message": "Drawing moved down successfully"})
+        else:
+            return jsonify({"error": "Cannot move drawing down (already at bottom or not found)"}), 400
+    except Exception as e:
+        print(f"ERROR: Move down API error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@drawings_bp.route('/drawings/<drawing_id>/copy', methods=['POST'])
+def copy_drawing_api(drawing_id: str):
+    """Copy a drawing"""
+    try:
+        data = request.get_json() or {}
+        new_name = data.get('name')
+
+        project_id = get_current_project()
+        if not project_id:
+            return jsonify({"error": "No active project"}), 400
+
+        new_drawing_id = copy_drawing(project_id, drawing_id, new_name)
+        if new_drawing_id:
+            return jsonify({
+                "message": "Drawing copied successfully",
+                "new_drawing_id": new_drawing_id
+            })
+        else:
+            return jsonify({"error": "Failed to copy drawing"}), 400
     except Exception as e:
         return jsonify({"error": str(e)}), 500

@@ -191,15 +191,21 @@ class DrawingManager {
     
     async loadDrawings() {
         try {
+            console.log('🔄 Loading drawings from API...');
             const response = await fetch('/api/drawings');
             const data = await response.json();
-            
+
+            console.log('📡 API response:', data);
+
             if (data.drawings) {
+                console.log(`📝 Received ${data.drawings.length} drawings`);
                 this.drawings.clear();
                 data.drawings.forEach(drawing => {
+                    console.log(`  - ${drawing.name} (ID: ${drawing.id.substring(0,8)}..., order: ${drawing.order})`);
                     this.drawings.set(drawing.id, drawing);
                 });
                 this.renderDrawingList();
+                console.log('✅ Drawing list rendered');
             }
         } catch (error) {
             console.error('Failed to load drawings:', error);
@@ -243,7 +249,12 @@ class DrawingManager {
             return;
         }
 
-        const drawingItems = Array.from(this.drawings.values()).map(drawing => {
+        // Sort drawings by order field for consistent order
+        const drawingsArray = Array.from(this.drawings.values());
+        console.log('🔀 Before sorting:', drawingsArray.map(d => `${d.name}(order:${d.order})`));
+        const sortedDrawings = drawingsArray.sort((a, b) => (a.order || 0) - (b.order || 0));
+        console.log('🔀 After sorting:', sortedDrawings.map(d => `${d.name}(order:${d.order})`));
+        const drawingItems = sortedDrawings.map(drawing => {
             const isActive = drawing.id === this.currentDrawingId;
             const isRunning = drawing.execution_state?.is_running;
             const status = drawing.execution_state?.status || 'idle';
@@ -283,11 +294,14 @@ class DrawingManager {
                         ` : ''}
                     </div>
                     <div class="drawing-actions">
-                        ${!isRunning ? 
-                            `<button class="drawing-action-btn play" data-action="play" data-drawing-id="${drawing.id}">▶</button>` :
-                            `<button class="drawing-action-btn stop" data-action="stop" data-drawing-id="${drawing.id}">⏹</button>`
+                        ${!isRunning ?
+                            `<button class="drawing-action-btn play" data-action="play" data-drawing-id="${drawing.id}" title="运行">▶</button>` :
+                            `<button class="drawing-action-btn stop" data-action="stop" data-drawing-id="${drawing.id}" title="停止">⏹</button>`
                         }
-                        <button class="drawing-action-btn delete" data-action="delete" data-drawing-id="${drawing.id}">🗑️</button>
+                        <button class="drawing-action-btn move-up" data-action="move-up" data-drawing-id="${drawing.id}" title="上移">↑</button>
+                        <button class="drawing-action-btn move-down" data-action="move-down" data-drawing-id="${drawing.id}" title="下移">↓</button>
+                        <button class="drawing-action-btn copy" data-action="copy" data-drawing-id="${drawing.id}" title="复制">📋</button>
+                        <button class="drawing-action-btn delete" data-action="delete" data-drawing-id="${drawing.id}" title="删除">🗑️</button>
                     </div>
                 </div>
             `;
@@ -318,6 +332,12 @@ class DrawingManager {
                     this.executeDrawing(drawingId);
                 } else if (action === 'stop') {
                     this.stopDrawing(drawingId);
+                } else if (action === 'move-up') {
+                    this.moveDrawingUp(drawingId);
+                } else if (action === 'move-down') {
+                    this.moveDrawingDown(drawingId);
+                } else if (action === 'copy') {
+                    this.copyDrawing(drawingId);
                 } else if (action === 'delete') {
                     this.deleteDrawing(drawingId);
                 }
@@ -534,6 +554,91 @@ class DrawingManager {
         }
     }
 
+    async moveDrawingUp(drawingId) {
+        try {
+            const response = await fetch(`/api/drawings/${drawingId}/move-up`, {
+                method: 'POST'
+            });
+
+            if (response.ok) {
+                // Reload drawings to get updated order
+                await this.loadDrawings();
+                this.showSuccess('画图已上移');
+            } else {
+                const error = await response.json();
+                // Still reload drawings to sync current state even on error
+                await this.loadDrawings();
+                this.showError(error.error || '上移画图失败');
+            }
+        } catch (error) {
+            console.error('Failed to move drawing up:', error);
+            // Reload drawings to ensure UI is in sync
+            await this.loadDrawings();
+            this.showError('上移画图失败');
+        }
+    }
+
+    async moveDrawingDown(drawingId) {
+        try {
+            const response = await fetch(`/api/drawings/${drawingId}/move-down`, {
+                method: 'POST'
+            });
+
+            if (response.ok) {
+                // Reload drawings to get updated order
+                await this.loadDrawings();
+                this.showSuccess('画图已下移');
+            } else {
+                const error = await response.json();
+                // Still reload drawings to sync current state even on error
+                await this.loadDrawings();
+                this.showError(error.error || '下移画图失败');
+            }
+        } catch (error) {
+            console.error('Failed to move drawing down:', error);
+            // Reload drawings to ensure UI is in sync
+            await this.loadDrawings();
+            this.showError('下移画图失败');
+        }
+    }
+
+    async copyDrawing(drawingId) {
+        try {
+            const originalDrawing = this.drawings.get(drawingId);
+            const newName = prompt('请输入新画图的名称:', `${originalDrawing?.name || '画图'} - 副本`);
+
+            if (!newName || newName.trim() === '') {
+                return; // User cancelled or entered empty name
+            }
+
+            const response = await fetch(`/api/drawings/${drawingId}/copy`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ name: newName.trim() })
+            });
+
+            if (response.ok) {
+                const result = await response.json();
+                // Reload drawings to show the new copy
+                await this.loadDrawings();
+                this.showSuccess(`画图已复制: ${newName}`);
+
+                // Optionally select the new drawing
+                if (result.new_drawing_id) {
+                    await this.selectDrawing(result.new_drawing_id);
+                }
+            } else {
+                const error = await response.json();
+                this.showError(error.error || '复制画图失败');
+            }
+        } catch (error) {
+            console.error('Failed to copy drawing:', error);
+            this.showError('复制画图失败');
+        }
+    }
+
     showCreateDrawingModal() {
         console.log('showCreateDrawingModal called');
         const modal = document.getElementById('createDrawingModal');
@@ -549,12 +654,13 @@ class DrawingManager {
             const yInput = document.getElementById('newDrawingY');
             const widthInput = document.getElementById('newDrawingWidth');
             const heightInput = document.getElementById('newDrawingHeight');
-            
+
             if (nameInput) nameInput.value = '';
             if (xInput) xInput.value = '0';
             if (yInput) yInput.value = '0';
-            if (widthInput) widthInput.value = '1920';
-            if (heightInput) heightInput.value = '1080';
+            // Use current screen resolution as default values
+            if (widthInput) widthInput.value = screen.width.toString();
+            if (heightInput) heightInput.value = screen.height.toString();
             
             console.log('Form reset completed');
         } else {
@@ -900,6 +1006,13 @@ class DrawingManager {
     showError(message) {
         // You can implement a proper error notification system here
         console.error(message);
+        alert(message);
+    }
+
+    showSuccess(message) {
+        // You can implement a proper success notification system here
+        console.log(message);
+        // For now, using alert - could be replaced with a toast notification
         alert(message);
     }
 
