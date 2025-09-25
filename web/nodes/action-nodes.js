@@ -5,6 +5,7 @@
     // Click Node - 点击节点
     function ClickNode() {
         this.title = "点击";
+        this.addInput("", LiteGraph.EVENT);
         this.addOutput("", LiteGraph.EVENT);
         this.addProperty("position_mode", "absolute");
         this.addProperty("x", 0);

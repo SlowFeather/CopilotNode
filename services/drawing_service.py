@@ -293,6 +293,12 @@ class DrawingService:
                 self._execute_wait(params)
             elif action_type in ["findimg", "followimg", "clickimg"]:
                 self._execute_bounded_image_action(drawing_id, action_type, params)
+            elif action_type == "mousedown":
+                self._execute_bounded_mouse_down(drawing_id, node, params)
+            elif action_type == "mouseup":
+                self._execute_bounded_mouse_up(drawing_id, node, params)
+            elif action_type == "mousescroll":
+                self._execute_bounded_mouse_scroll(drawing_id, node, params)
             elif action_type == "if":
                 self._execute_if_condition(drawing_id, node, params)
                 
@@ -312,33 +318,63 @@ class DrawingService:
 
     def _execute_bounded_click(self, drawing_id: str, node: Dict[str, Any], params: Dict[str, Any]):
         """Execute click action with boundary check"""
-        x, y = params.get("x", 0), params.get("y", 0)
+        position_mode = params.get("position_mode", "absolute")
         x_random = params.get("x_random", 0.0)
         y_random = params.get("y_random", 0.0)
-        
-        if x == 0 and y == 0:
-            print(f"WARNING: Drawing {drawing_id} - Click node {node['id']} has coordinates (0,0). Skipping...")
-            return
-        
-        final_x, final_y = x, y
-        
-        if x_random > 0:
-            random_x_offset = random.uniform(-x_random, x_random)
-            final_x = int(x + random_x_offset)
-            
-        if y_random > 0:
-            random_y_offset = random.uniform(-y_random, y_random)
-            final_y = int(y + random_y_offset)
-        
-        # Check boundary
+
+        if position_mode == "current":
+            # 使用当前鼠标位置，无视节点属性中的xy坐标
+            current_x, current_y = pyautogui.position()
+            final_x, final_y = current_x, current_y
+
+            # 对current模式添加随机偏移
+            if x_random > 0:
+                random_x_offset = random.uniform(-x_random, x_random)
+                final_x = int(final_x + random_x_offset)
+
+            if y_random > 0:
+                random_y_offset = random.uniform(-y_random, y_random)
+                final_y = int(final_y + random_y_offset)
+
+            print(f"DEBUG: Drawing {drawing_id} - Click node {node['id']} using current position ({current_x}, {current_y}) -> final: ({final_x}, {final_y})")
+        else:
+            # 使用绝对坐标
+            x, y = params.get("x", 0), params.get("y", 0)
+
+            if x == 0 and y == 0:
+                print(f"WARNING: Drawing {drawing_id} - Click node {node['id']} has coordinates (0,0). Skipping...")
+                return
+
+            final_x, final_y = x, y
+
+            if x_random > 0:
+                random_x_offset = random.uniform(-x_random, x_random)
+                final_x = int(x + random_x_offset)
+
+            if y_random > 0:
+                random_y_offset = random.uniform(-y_random, y_random)
+                final_y = int(y + random_y_offset)
+
+            print(f"DEBUG: Drawing {drawing_id} - Click node {node['id']} using absolute position ({x}, {y}) -> final: ({final_x}, {final_y})")
+
+        # Check boundary (对两种模式都进行边界检查)
         if not self.is_coordinate_in_boundary(drawing_id, final_x, final_y):
             print(f"Drawing {drawing_id} - Click coordinates ({final_x}, {final_y}) outside boundary. Skipping...")
             return
-        
+
         screen_width, screen_height = pyautogui.size()
         if 0 <= final_x <= screen_width and 0 <= final_y <= screen_height:
-            pyautogui.moveTo(final_x, final_y, duration=0.1)
-            time.sleep(0.1)
+            if position_mode == "current":
+                # current模式：直接在当前位置点击，如果有随机偏移则移动到偏移位置
+                if x_random > 0 or y_random > 0:
+                    pyautogui.moveTo(final_x, final_y, duration=0.1)
+                    time.sleep(0.1)
+                # else: 不移动鼠标，直接在当前位置点击
+            else:
+                # absolute模式：移动到目标位置
+                pyautogui.moveTo(final_x, final_y, duration=0.1)
+                time.sleep(0.1)
+
             pyautogui.click()
             print(f"DEBUG: Drawing {drawing_id} - Successfully clicked at ({final_x}, {final_y})")
         else:
@@ -469,6 +505,202 @@ class DrawingService:
             condition_result = False
         
         node['_condition_result'] = condition_result
+
+    def _execute_bounded_mouse_down(self, drawing_id: str, node: Dict[str, Any], params: Dict[str, Any]):
+        """Execute mouse down action with boundary check"""
+        position_mode = params.get("position_mode", "absolute")
+        button = params.get("button", "left")
+        x_random = params.get("x_random", 0.0)
+        y_random = params.get("y_random", 0.0)
+
+        if position_mode == "current":
+            # 使用当前鼠标位置，无视节点属性中的xy坐标
+            current_x, current_y = pyautogui.position()
+            final_x, final_y = current_x, current_y
+
+            # 对current模式添加随机偏移
+            if x_random > 0:
+                random_x_offset = random.uniform(-x_random, x_random)
+                final_x = int(final_x + random_x_offset)
+
+            if y_random > 0:
+                random_y_offset = random.uniform(-y_random, y_random)
+                final_y = int(final_y + random_y_offset)
+
+            print(f"DEBUG: Drawing {drawing_id} - MouseDown node {node['id']} using current position ({current_x}, {current_y}) -> final: ({final_x}, {final_y})")
+        else:
+            # 使用绝对坐标
+            x, y = params.get("x", 0), params.get("y", 0)
+
+            if x == 0 and y == 0:
+                print(f"WARNING: Drawing {drawing_id} - MouseDown node {node['id']} has coordinates (0,0). Using current position instead...")
+                current_x, current_y = pyautogui.position()
+                final_x, final_y = current_x, current_y
+            else:
+                final_x, final_y = x, y
+
+                if x_random > 0:
+                    random_x_offset = random.uniform(-x_random, x_random)
+                    final_x = int(x + random_x_offset)
+
+                if y_random > 0:
+                    random_y_offset = random.uniform(-y_random, y_random)
+                    final_y = int(y + random_y_offset)
+
+            print(f"DEBUG: Drawing {drawing_id} - MouseDown node {node['id']} using absolute position ({x}, {y}) -> final: ({final_x}, {final_y})")
+
+        # Check boundary
+        if not self.is_coordinate_in_boundary(drawing_id, final_x, final_y):
+            print(f"Drawing {drawing_id} - MouseDown coordinates ({final_x}, {final_y}) outside boundary. Skipping...")
+            return
+
+        screen_width, screen_height = pyautogui.size()
+        if 0 <= final_x <= screen_width and 0 <= final_y <= screen_height:
+            if position_mode == "current":
+                # current模式：如果有随机偏移则移动到偏移位置
+                if x_random > 0 or y_random > 0:
+                    pyautogui.moveTo(final_x, final_y, duration=0.1)
+                    time.sleep(0.1)
+                # else: 不移动鼠标，直接在当前位置按下
+            else:
+                # absolute模式：移动到目标位置
+                pyautogui.moveTo(final_x, final_y, duration=0.1)
+                time.sleep(0.1)
+
+            pyautogui.mouseDown(button=button)
+            print(f"DEBUG: Drawing {drawing_id} - Successfully pressed {button} mouse button at ({final_x}, {final_y})")
+        else:
+            print(f"Drawing {drawing_id} - MouseDown coordinates ({final_x}, {final_y}) outside screen bounds")
+
+    def _execute_bounded_mouse_up(self, drawing_id: str, node: Dict[str, Any], params: Dict[str, Any]):
+        """Execute mouse up action with boundary check"""
+        position_mode = params.get("position_mode", "absolute")
+        button = params.get("button", "left")
+        x_random = params.get("x_random", 0.0)
+        y_random = params.get("y_random", 0.0)
+
+        if position_mode == "current":
+            # 使用当前鼠标位置，无视节点属性中的xy坐标
+            current_x, current_y = pyautogui.position()
+            final_x, final_y = current_x, current_y
+
+            # 对current模式添加随机偏移
+            if x_random > 0:
+                random_x_offset = random.uniform(-x_random, x_random)
+                final_x = int(final_x + random_x_offset)
+
+            if y_random > 0:
+                random_y_offset = random.uniform(-y_random, y_random)
+                final_y = int(final_y + random_y_offset)
+
+            print(f"DEBUG: Drawing {drawing_id} - MouseUp node {node['id']} using current position ({current_x}, {current_y}) -> final: ({final_x}, {final_y})")
+        else:
+            # 使用绝对坐标
+            x, y = params.get("x", 0), params.get("y", 0)
+            final_x, final_y = x, y
+
+            if x_random > 0:
+                random_x_offset = random.uniform(-x_random, x_random)
+                final_x = int(x + random_x_offset)
+
+            if y_random > 0:
+                random_y_offset = random.uniform(-y_random, y_random)
+                final_y = int(y + random_y_offset)
+
+            print(f"DEBUG: Drawing {drawing_id} - MouseUp node {node['id']} using absolute position ({x}, {y}) -> final: ({final_x}, {final_y})")
+
+        # Check boundary
+        if not self.is_coordinate_in_boundary(drawing_id, final_x, final_y):
+            print(f"Drawing {drawing_id} - MouseUp coordinates ({final_x}, {final_y}) outside boundary. Skipping...")
+            return
+
+        screen_width, screen_height = pyautogui.size()
+        if 0 <= final_x <= screen_width and 0 <= final_y <= screen_height:
+            if position_mode == "current":
+                # current模式：如果有随机偏移则移动到偏移位置
+                if x_random > 0 or y_random > 0:
+                    pyautogui.moveTo(final_x, final_y, duration=0.1)
+                    time.sleep(0.1)
+                # else: 不移动鼠标，直接在当前位置松开
+            else:
+                # absolute模式：移动到目标位置
+                pyautogui.moveTo(final_x, final_y, duration=0.1)
+                time.sleep(0.1)
+
+            pyautogui.mouseUp(button=button)
+            print(f"DEBUG: Drawing {drawing_id} - Successfully released {button} mouse button at ({final_x}, {final_y})")
+        else:
+            print(f"Drawing {drawing_id} - MouseUp coordinates ({final_x}, {final_y}) outside screen bounds")
+
+    def _execute_bounded_mouse_scroll(self, drawing_id: str, node: Dict[str, Any], params: Dict[str, Any]):
+        """Execute mouse scroll action with boundary check"""
+        position_mode = params.get("position_mode", "absolute")
+        direction = params.get("direction", "up")
+        clicks = params.get("clicks", 3)
+        x_random = params.get("x_random", 0.0)
+        y_random = params.get("y_random", 0.0)
+
+        if position_mode == "current":
+            # 使用当前鼠标位置，无视节点属性中的xy坐标
+            current_x, current_y = pyautogui.position()
+            final_x, final_y = current_x, current_y
+
+            # 对current模式添加随机偏移
+            if x_random > 0:
+                random_x_offset = random.uniform(-x_random, x_random)
+                final_x = int(final_x + random_x_offset)
+
+            if y_random > 0:
+                random_y_offset = random.uniform(-y_random, y_random)
+                final_y = int(final_y + random_y_offset)
+
+            print(f"DEBUG: Drawing {drawing_id} - MouseScroll node {node['id']} using current position ({current_x}, {current_y}) -> final: ({final_x}, {final_y})")
+        else:
+            # 使用绝对坐标
+            x, y = params.get("x", 0), params.get("y", 0)
+
+            if x == 0 and y == 0:
+                print(f"WARNING: Drawing {drawing_id} - MouseScroll node {node['id']} has coordinates (0,0). Using current position instead...")
+                current_x, current_y = pyautogui.position()
+                final_x, final_y = current_x, current_y
+            else:
+                final_x, final_y = x, y
+
+                if x_random > 0:
+                    random_x_offset = random.uniform(-x_random, x_random)
+                    final_x = int(x + random_x_offset)
+
+                if y_random > 0:
+                    random_y_offset = random.uniform(-y_random, y_random)
+                    final_y = int(y + random_y_offset)
+
+            print(f"DEBUG: Drawing {drawing_id} - MouseScroll node {node['id']} using absolute position ({x}, {y}) -> final: ({final_x}, {final_y})")
+
+        # Check boundary
+        if not self.is_coordinate_in_boundary(drawing_id, final_x, final_y):
+            print(f"Drawing {drawing_id} - MouseScroll coordinates ({final_x}, {final_y}) outside boundary. Skipping...")
+            return
+
+        # 确定滚轮方向
+        scroll_amount = clicks if direction == "up" else -clicks
+
+        screen_width, screen_height = pyautogui.size()
+        if 0 <= final_x <= screen_width and 0 <= final_y <= screen_height:
+            if position_mode == "current":
+                # current模式：如果有随机偏移则移动到偏移位置
+                if x_random > 0 or y_random > 0:
+                    pyautogui.moveTo(final_x, final_y, duration=0.1)
+                    time.sleep(0.1)
+                # else: 不移动鼠标，直接在当前位置滚动
+            else:
+                # absolute模式：移动到目标位置
+                pyautogui.moveTo(final_x, final_y, duration=0.1)
+                time.sleep(0.1)
+
+            pyautogui.scroll(scroll_amount)
+            print(f"DEBUG: Drawing {drawing_id} - Successfully scrolled {direction} {clicks} clicks at ({final_x}, {final_y})")
+        else:
+            print(f"Drawing {drawing_id} - MouseScroll coordinates ({final_x}, {final_y}) outside screen bounds")
 
     def start_all_drawings_execution(self, loop: bool = False, speed: float = 1.0):
         """Start executing all drawings in the current project sequentially"""

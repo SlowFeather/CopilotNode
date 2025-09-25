@@ -4,7 +4,7 @@ class NodeManager {
         this.app = app;
     }
 
-    addNodeToGraph(nodeType, position, autoSelect = true) {
+    addNodeToGraph(nodeType, position, autoSelect = true, predefinedId = null) {
         // Check if we have a current drawing selected
         if (window.drawingManager && !window.drawingManager.currentDrawingId) {
             this.app.showNotification('请先在左侧选择或创建一个画图才能添加节点！', 'warning');
@@ -12,7 +12,7 @@ class NodeManager {
             return null;
         }
 
-        console.log(`addNodeToGraph called: nodeType=${nodeType}, position=`, position);
+        console.log(`addNodeToGraph called: nodeType=${nodeType}, position=`, position, `predefinedId=${predefinedId}`);
         console.log('Drawing manager state:', {
             exists: !!window.drawingManager,
             currentDrawingId: window.drawingManager?.currentDrawingId
@@ -21,32 +21,42 @@ class NodeManager {
         const nodeClassName = `autoclick/${nodeType}`;
         console.log(`Attempting to create node: ${nodeClassName}`);
         const node = LiteGraph.createNode(nodeClassName);
-        
+
         if (node) {
             console.log('Node created successfully:', node);
             node.pos = position;
             // Set action_type property to match backend expectations
             node.properties = node.properties || {};
             node.properties.action_type = nodeType;
-            
+
             // Ensure default properties exist based on node type
             this.setDefaultProperties(node, nodeType);
-            
+
+            // Set predefined ID before adding to graph
+            if (predefinedId !== null) {
+                node.id = parseInt(predefinedId);
+            }
+
             this.app.graph.add(node);
-            
+
+            // Update graph's internal ID mapping if predefined ID was used
+            if (predefinedId !== null && this.app.graph._nodes_by_id) {
+                this.app.graph._nodes_by_id[parseInt(predefinedId)] = node;
+            }
+
             // Only select node if autoSelect is true (default for manual adds)
             if (autoSelect) {
                 this.app.canvas.selectNode(node);
-                
+
                 // Force update properties panel
                 setTimeout(() => {
                     this.app.selectedNode = node;
                     this.updatePropertiesPanel(node);
                 }, 100);
             }
-            
+
             console.log(`Added ${nodeType} node to current drawing:`, window.drawingManager?.currentDrawingId);
-            
+
             return node;
         } else {
             console.error(`Failed to create node: ${nodeClassName}`);
@@ -110,6 +120,25 @@ class NodeManager {
         } else {
             Object.keys(properties).forEach(key => {
                 if (key === 'action_type') return; // Skip internal property
+
+                // Smart filtering for keyboard node properties based on input_type
+                if (node.title === '键盘' && properties.input_type) {
+                    const inputType = properties.input_type;
+
+                    // Skip properties that don't apply to current input type
+                    if (inputType === 'text' && (key === 'key' || key === 'special_key' || key === 'modifier_keys' || key === 'hold_duration')) {
+                        return;
+                    }
+                    if (inputType === 'key' && (key === 'text' || key === 'special_key' || key === 'modifier_keys')) {
+                        return;
+                    }
+                    if (inputType === 'special' && (key === 'text' || key === 'key' || key === 'modifier_keys')) {
+                        return;
+                    }
+                    if (inputType === 'combo' && (key === 'text' || key === 'special_key')) {
+                        return;
+                    }
+                }
                 
                 const value = properties[key];
                 
@@ -135,13 +164,75 @@ class NodeManager {
                         <option value="up" ${value === 'up' ? 'selected' : ''}>向上</option>
                         <option value="down" ${value === 'down' ? 'selected' : ''}>向下</option>
                     </select>`;
+                } else if (key === 'input_type') {
+                    // Keyboard input type dropdown
+                    inputHtml = `<select class="property-input" data-property="${key}">
+                        <option value="text" ${value === 'text' ? 'selected' : ''}>文本输入</option>
+                        <option value="key" ${value === 'key' ? 'selected' : ''}>单个按键</option>
+                        <option value="special" ${value === 'special' ? 'selected' : ''}>特殊按键</option>
+                        <option value="combo" ${value === 'combo' ? 'selected' : ''}>组合按键</option>
+                    </select>`;
+                } else if (key === 'special_key') {
+                    // Special key dropdown
+                    const specialKeys = [
+                        "enter", "space", "tab", "escape", "backspace", "delete",
+                        "up", "down", "left", "right", "home", "end", "page_up", "page_down",
+                        "f1", "f2", "f3", "f4", "f5", "f6", "f7", "f8", "f9", "f10", "f11", "f12",
+                        "insert", "print_screen", "scroll_lock", "pause",
+                        "caps_lock", "num_lock", "shift", "ctrl", "alt", "cmd", "win"
+                    ];
+                    inputHtml = `<select class="property-input" data-property="${key}">`;
+                    specialKeys.forEach(keyName => {
+                        inputHtml += `<option value="${keyName}" ${value === keyName ? 'selected' : ''}>${keyName}</option>`;
+                    });
+                    inputHtml += `</select>`;
+                } else if (key === 'hold_duration') {
+                    // Hold duration number input with step
+                    inputHtml = `<input type="number" class="property-input"
+                           data-property="${key}"
+                           value="${value || 0.1}"
+                           min="0"
+                           step="0.1">`;
+                } else if (key === 'modifier_keys') {
+                    // Modifier keys with checkboxes
+                    const modifiers = ['ctrl', 'alt', 'shift', 'cmd', 'win'];
+                    const selectedModifiers = value ? value.split('+').map(m => m.trim().toLowerCase()) : [];
+
+                    inputHtml = `
+                        <div class="modifier-keys-container">
+                            ${modifiers.map(mod => `
+                                <label class="modifier-checkbox">
+                                    <input type="checkbox"
+                                           data-modifier="${mod}"
+                                           ${selectedModifiers.includes(mod) ? 'checked' : ''}>
+                                    <span class="modifier-label">${mod.charAt(0).toUpperCase() + mod.slice(1)}</span>
+                                </label>
+                            `).join('')}
+                        </div>
+                        <input type="hidden" class="property-input" data-property="${key}" value="${value || ''}">
+                    `;
+                } else if (key === 'key' && node.title === '键盘') {
+                    // Enhanced key input with suggestions
+                    inputHtml = `
+                        <div class="key-input-container">
+                            <input type="text" class="property-input enhanced"
+                                   data-property="${key}"
+                                   value="${value || ''}"
+                                   placeholder="输入按键，如: a, 1, space"
+                                   autocomplete="off">
+                            <div class="key-suggestions" id="keySuggestions"></div>
+                        </div>
+                        <div class="input-help-text">常用: a-z, 0-9, space, enter, tab, shift</div>
+                    `;
                 } else {
                     // Regular input
                     const inputType = typeof value === 'number' ? 'number' : 'text';
-                    inputHtml = `<input type="${inputType}" class="property-input" 
-                           data-property="${key}" 
+                    const enhanced = (key === 'text' && node.title === '键盘') ? 'enhanced' : '';
+                    inputHtml = `<input type="${inputType}" class="property-input ${enhanced}"
+                           data-property="${key}"
                            value="${value || ''}"
                            ${key.includes('image_path') ? 'readonly' : ''}
+                           ${key === 'text' && node.title === '键盘' ? 'placeholder="输入要发送的文本"' : ''}
                            step="${inputType === 'number' ? '0.1' : ''}">`;
                 }
                 
@@ -178,17 +269,57 @@ class NodeManager {
                 this.handlePropertyChange(node, e, true);
             });
         });
+
+        // Bind modifier key checkboxes
+        const modifierCheckboxes = content.querySelectorAll('.modifier-checkbox input[type="checkbox"]');
+        modifierCheckboxes.forEach(checkbox => {
+            checkbox.addEventListener('change', (e) => {
+                this.handleModifierKeyChange(node, content);
+            });
+
+            // Update visual state
+            checkbox.addEventListener('change', function() {
+                const label = this.closest('.modifier-checkbox');
+                if (this.checked) {
+                    label.classList.add('checked');
+                } else {
+                    label.classList.remove('checked');
+                }
+            });
+        });
+
+        // Bind key input suggestions
+        const keyInputs = content.querySelectorAll('.key-input-container input');
+        keyInputs.forEach(input => {
+            this.setupKeyInputSuggestions(input);
+        });
     }
 
     handlePropertyChange(node, event, isRealTime = false) {
         const property = event.target.dataset.property;
         let value = event.target.value;
-        
+
         // Convert to number if needed
         if (event.target.type === 'number') {
             value = parseFloat(value) || 0;
         }
-        
+
+        // Validate key input for keyboard nodes
+        if (property === 'key' && node.title === '键盘') {
+            const isValid = this.validateKeyInput(value);
+            event.target.classList.toggle('error', !isValid);
+            if (!isValid && !isRealTime) {
+                this.showInputError(event.target, '请输入有效的按键名称');
+                return;
+            }
+        }
+
+        // Validate hold duration
+        if (property === 'hold_duration' && value < 0) {
+            value = 0;
+            event.target.value = value;
+        }
+
         console.log(`Updating property ${property} to:`, value);
         node.properties[property] = value;
         
@@ -203,7 +334,7 @@ class NodeManager {
         }
         
         // For certain properties that affect UI visibility, refresh the properties panel
-        if (property === 'position_mode' && !isRealTime) {
+        if ((property === 'position_mode' || property === 'input_type') && !isRealTime) {
             setTimeout(() => {
                 this.updatePropertiesPanel(node);
             }, 50);
@@ -231,6 +362,10 @@ class NodeManager {
             'speed_random': '速度随机范围',
             'text': '文本内容',
             'key': '按键',
+            'input_type': '输入类型',
+            'special_key': '特殊按键',
+            'modifier_keys': '修饰键',
+            'hold_duration': '按住时长(秒)',
             'position_mode': '位置模式',
             'button': '鼠标按键',
             'direction': '滚动方向',
@@ -245,6 +380,203 @@ class NodeManager {
             'output_type': '输出类型'
         };
         return labels[key] || key;
+    }
+
+    handleModifierKeyChange(node, content) {
+        const checkboxes = content.querySelectorAll('.modifier-checkbox input[type="checkbox"]:checked');
+        const selectedModifiers = Array.from(checkboxes).map(cb => cb.dataset.modifier);
+        const modifierValue = selectedModifiers.join('+');
+
+        // Update the hidden input
+        const hiddenInput = content.querySelector('input[data-property="modifier_keys"]');
+        if (hiddenInput) {
+            hiddenInput.value = modifierValue;
+            // Trigger change event
+            hiddenInput.dispatchEvent(new Event('change'));
+        }
+
+        // Update node property
+        node.properties.modifier_keys = modifierValue;
+
+        // Update node widgets if available
+        if (typeof node.updateWidgets === 'function') {
+            node.updateWidgets();
+        }
+
+        // Force canvas redraw
+        node.setDirtyCanvas(true, true);
+        this.app.canvas.setDirty(true, true);
+
+        // Trigger auto-save
+        if (window.drawingManager && window.drawingManager._triggerDelayedSave) {
+            window.drawingManager._triggerDelayedSave();
+        }
+    }
+
+    setupKeyInputSuggestions(input) {
+        const commonKeys = [
+            'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm',
+            'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z',
+            '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
+            'space', 'enter', 'tab', 'shift', 'ctrl', 'alt',
+            'up', 'down', 'left', 'right', 'home', 'end',
+            'backspace', 'delete', 'escape', 'insert'
+        ];
+
+        const suggestionsContainer = input.nextElementSibling;
+        if (!suggestionsContainer || !suggestionsContainer.classList.contains('key-suggestions')) {
+            return;
+        }
+
+        let selectedIndex = -1;
+
+        const showSuggestions = (query) => {
+            const filtered = commonKeys.filter(key =>
+                key.toLowerCase().includes(query.toLowerCase())
+            ).slice(0, 8);
+
+            if (filtered.length === 0 || (filtered.length === 1 && filtered[0].toLowerCase() === query.toLowerCase())) {
+                suggestionsContainer.style.display = 'none';
+                return;
+            }
+
+            suggestionsContainer.innerHTML = filtered.map((key, index) =>
+                `<div class="key-suggestion ${index === selectedIndex ? 'selected' : ''}" data-key="${key}">${key}</div>`
+            ).join('');
+
+            suggestionsContainer.style.display = 'block';
+            selectedIndex = -1;
+        };
+
+        const hideSuggestions = () => {
+            suggestionsContainer.style.display = 'none';
+            selectedIndex = -1;
+        };
+
+        const selectSuggestion = (key) => {
+            input.value = key;
+            input.dispatchEvent(new Event('change'));
+            hideSuggestions();
+            input.focus();
+        };
+
+        // Input events
+        input.addEventListener('input', (e) => {
+            const query = e.target.value.trim();
+            if (query.length > 0) {
+                showSuggestions(query);
+            } else {
+                hideSuggestions();
+            }
+        });
+
+        input.addEventListener('focus', (e) => {
+            const query = e.target.value.trim();
+            if (query.length > 0) {
+                showSuggestions(query);
+            }
+        });
+
+        input.addEventListener('blur', (e) => {
+            // Delay hiding to allow clicks on suggestions
+            setTimeout(() => hideSuggestions(), 150);
+        });
+
+        // Keyboard navigation
+        input.addEventListener('keydown', (e) => {
+            const suggestions = suggestionsContainer.querySelectorAll('.key-suggestion');
+
+            if (suggestions.length === 0) return;
+
+            switch (e.key) {
+                case 'ArrowDown':
+                    e.preventDefault();
+                    selectedIndex = Math.min(selectedIndex + 1, suggestions.length - 1);
+                    updateSelectedSuggestion();
+                    break;
+                case 'ArrowUp':
+                    e.preventDefault();
+                    selectedIndex = Math.max(selectedIndex - 1, -1);
+                    updateSelectedSuggestion();
+                    break;
+                case 'Enter':
+                    e.preventDefault();
+                    if (selectedIndex >= 0) {
+                        selectSuggestion(suggestions[selectedIndex].dataset.key);
+                    }
+                    break;
+                case 'Escape':
+                    hideSuggestions();
+                    break;
+            }
+        });
+
+        const updateSelectedSuggestion = () => {
+            const suggestions = suggestionsContainer.querySelectorAll('.key-suggestion');
+            suggestions.forEach((suggestion, index) => {
+                suggestion.classList.toggle('selected', index === selectedIndex);
+            });
+        };
+
+        // Click events on suggestions
+        suggestionsContainer.addEventListener('click', (e) => {
+            const suggestion = e.target.closest('.key-suggestion');
+            if (suggestion) {
+                selectSuggestion(suggestion.dataset.key);
+            }
+        });
+    }
+
+    validateKeyInput(value) {
+        if (!value || value.trim() === '') return true; // Empty is valid
+
+        const validKeys = [
+            // Letters
+            'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm',
+            'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z',
+            // Numbers
+            '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
+            // Special keys
+            'space', 'enter', 'tab', 'shift', 'ctrl', 'alt', 'cmd', 'win',
+            'up', 'down', 'left', 'right', 'home', 'end', 'pageup', 'pagedown',
+            'backspace', 'delete', 'escape', 'insert', 'capslock', 'numlock',
+            'f1', 'f2', 'f3', 'f4', 'f5', 'f6', 'f7', 'f8', 'f9', 'f10', 'f11', 'f12',
+            // Symbols
+            '`', '-', '=', '[', ']', '\\', ';', "'", ',', '.', '/',
+            '~', '!', '@', '#', '$', '%', '^', '&', '*', '(', ')', '_', '+',
+            '{', '}', '|', ':', '"', '<', '>', '?'
+        ];
+
+        return validKeys.includes(value.toLowerCase().trim());
+    }
+
+    showInputError(input, message) {
+        // Remove existing error message
+        const existingError = input.parentNode.querySelector('.input-error-message');
+        if (existingError) {
+            existingError.remove();
+        }
+
+        // Create error message
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'input-error-message';
+        errorDiv.style.cssText = `
+            color: var(--danger-color);
+            font-size: 11px;
+            margin-top: 4px;
+            font-style: italic;
+        `;
+        errorDiv.textContent = message;
+
+        // Insert after input
+        input.parentNode.insertBefore(errorDiv, input.nextSibling);
+
+        // Auto-remove after 3 seconds
+        setTimeout(() => {
+            if (errorDiv.parentNode) {
+                errorDiv.remove();
+            }
+        }, 3000);
     }
 
     // 数据导入导出相关方法
@@ -390,59 +722,41 @@ class NodeManager {
     // Helper method to load a single node from data (used by drawing manager)
     loadNodeFromData(nodeData) {
         console.log(`Loading node: ${nodeData.id} (${nodeData.action_type})`);
-        
+
         // Use position from nodeData if available, otherwise use default
-        const position = [nodeData.pos ? nodeData.pos[0] : (nodeData.x || 0), 
+        const position = [nodeData.pos ? nodeData.pos[0] : (nodeData.x || 0),
                          nodeData.pos ? nodeData.pos[1] : (nodeData.y || 0)];
-        
-        const node = this.addNodeToGraph(nodeData.action_type, position, false);
+
+        // Create node with predefined ID to maintain data consistency
+        const node = this.addNodeToGraph(nodeData.action_type, position, false, nodeData.id);
         if (node) {
-            // Store original ID for reference
-            node._original_id = nodeData.id;
-            
-            // Force node ID to match the saved ID to prevent connection issues
-            const savedId = parseInt(nodeData.id);
-            const oldId = node.id;
-            
-            // Only update ID if it's different
-            if (oldId !== savedId) {
-                if (this.app.graph._nodes_by_id && this.app.graph._nodes_by_id[oldId]) {
-                    delete this.app.graph._nodes_by_id[oldId];
-                }
-                
-                node.id = savedId;
-                if (this.app.graph._nodes_by_id) {
-                    this.app.graph._nodes_by_id[savedId] = node;
-                }
-                
-                console.log(`Corrected node ID: ${oldId} -> ${savedId}`);
-            }
-            
+            console.log(`✅ Created node with unified ID: ${node.id}`);
+
             // Apply properties from params
             if (nodeData.params) {
                 Object.assign(node.properties, nodeData.params);
                 console.log(`Applied properties to node ${nodeData.id}:`, nodeData.params);
-                
+
                 if (typeof node.syncWidgets === 'function') {
                     node.syncWidgets();
                 }
             }
-            
+
             // Set node size if provided
             if (nodeData.size) {
                 node.size[0] = nodeData.size[0];
                 node.size[1] = nodeData.size[1];
             }
-            
+
             // Store pending connections for later processing
             if (nodeData.connections && nodeData.connections.length > 0) {
                 node._pendingConnections = nodeData.connections;
                 console.log(`Stored ${nodeData.connections.length} pending connections for node ${nodeData.id}`);
             }
-            
+
             // Force node redraw to show loaded properties
             node.setDirtyCanvas(true, true);
-            
+
             return node;
         } else {
             console.error(`Failed to create node ${nodeData.id} of type ${nodeData.action_type}`);

@@ -164,7 +164,9 @@ class DrawingManager {
         try {
             console.log('🔍 Checking for active project...');
             // First check if there's an active project
-            const activeProjectResponse = await fetch('/api/projects/active');
+            const activeProjectResponse = await fetch(`/api/projects/active?_t=${Date.now()}`, {
+                cache: 'no-cache'
+            });
             console.log('📡 Active project response status:', activeProjectResponse.status);
             
             if (activeProjectResponse.status === 404) {
@@ -192,7 +194,10 @@ class DrawingManager {
     async loadDrawings() {
         try {
             console.log('🔄 Loading drawings from API...');
-            const response = await fetch('/api/drawings');
+            // Add cache-busting parameter to ensure fresh data
+            const response = await fetch(`/api/drawings?_t=${Date.now()}`, {
+                cache: 'no-cache'
+            });
             const data = await response.json();
 
             console.log('📡 API response:', data);
@@ -251,9 +256,9 @@ class DrawingManager {
 
         // Sort drawings by order field for consistent order
         const drawingsArray = Array.from(this.drawings.values());
-        console.log('🔀 Before sorting:', drawingsArray.map(d => `${d.name}(order:${d.order})`));
+        //console.log('🔀 Before sorting:', drawingsArray.map(d => `${d.name}(order:${d.order})`));
         const sortedDrawings = drawingsArray.sort((a, b) => (a.order || 0) - (b.order || 0));
-        console.log('🔀 After sorting:', sortedDrawings.map(d => `${d.name}(order:${d.order})`));
+        //console.log('🔀 After sorting:', sortedDrawings.map(d => `${d.name}(order:${d.order})`));
         const drawingItems = sortedDrawings.map(drawing => {
             const isActive = drawing.id === this.currentDrawingId;
             const isRunning = drawing.execution_state?.is_running;
@@ -356,7 +361,9 @@ class DrawingManager {
             }
 
             // Load drawing data
-            const response = await fetch(`/api/drawings/${drawingId}`);
+            const response = await fetch(`/api/drawings/${drawingId}?_t=${Date.now()}`, {
+                cache: 'no-cache'
+            });
             const drawing = await response.json();
 
             if (drawing.error) {
@@ -541,12 +548,12 @@ class DrawingManager {
             if (result.error) {
                 this.showError(result.error);
             } else {
-                this.drawings.delete(drawingId);
+                // Reload drawings to get updated state from server
+                await this.loadDrawings();
                 if (this.currentDrawingId === drawingId) {
                     this.clearCurrentDrawing();
-                } else {
-                    this.renderDrawingList();
                 }
+                this.showSuccess('画图已删除');
             }
         } catch (error) {
             console.error('Failed to delete drawing:', error);
@@ -690,7 +697,7 @@ class DrawingManager {
         };
 
         try {
-            const response = await fetch('/api/drawings', {
+            const response = await fetch(`/api/drawings?_t=${Date.now()}`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -734,7 +741,7 @@ class DrawingManager {
         };
 
         try {
-            const response = await fetch(`/api/drawings/${this.currentDrawingId}/boundary`, {
+            const response = await fetch(`/api/drawings/${this.currentDrawingId}/boundary?_t=${Date.now()}`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -800,7 +807,7 @@ class DrawingManager {
                 console.log(`💾 Total serialized nodes: ${nodes.length}`);
             }
 
-            const response = await fetch(`/api/drawings/${this.currentDrawingId}`, {
+            const response = await fetch(`/api/drawings/${this.currentDrawingId}?_t=${Date.now()}`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json'
@@ -828,7 +835,7 @@ class DrawingManager {
         const allNodeIds = [];
         
         window.app.graph._nodes.forEach(node => {
-            allNodeIds.push(`${node._original_id}(runtime:${node.id})`);
+            allNodeIds.push(`${node.id}`);
             if (node._pendingConnections && node._pendingConnections.length > 0) {
                 nodesToConnect.push(node);
             }
@@ -841,12 +848,12 @@ class DrawingManager {
         let failedConnections = 0;
 
         nodesToConnect.forEach(node => {
-            console.log(`Node ${node._original_id}(runtime:${node.id}) has pending connections:`, node._pendingConnections);
-            
+            console.log(`Node ${node.id} has pending connections:`, node._pendingConnections);
+
             node._pendingConnections.forEach(targetNodeId => {
-                // Since we now force IDs to match, we can use graph.getNodeById directly
+                // Direct ID lookup - now possible with unified ID management
                 const targetNode = window.app.graph.getNodeById(parseInt(targetNodeId));
-                
+
                 if (targetNode && node.outputs && node.outputs[0] && targetNode.inputs && targetNode.inputs[0]) {
                     console.log(`✅ Connecting node ${node.id} to node ${targetNode.id}`);
                     node.connect(0, targetNode, 0);
@@ -977,7 +984,9 @@ class DrawingManager {
 
         this.statusUpdateInterval = setInterval(async () => {
             try {
-                const response = await fetch('/api/drawings/status');
+                const response = await fetch(`/api/drawings/status?_t=${Date.now()}`, {
+                    cache: 'no-cache'
+                });
                 const data = await response.json();
                 
                 if (data.statuses) {
@@ -1018,7 +1027,7 @@ class DrawingManager {
 
     setupAutoSave() {
         // Save before page unload
-        window.addEventListener('beforeunload', async (e) => {
+        window.addEventListener('beforeunload', async () => {
             if (this.currentDrawingId && window.app && window.app.graph._nodes && window.app.graph._nodes.length > 0) {
                 // Save current drawing before leaving
                 console.log('Page unloading - auto-saving current drawing...');
