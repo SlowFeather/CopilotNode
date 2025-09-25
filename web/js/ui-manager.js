@@ -214,7 +214,9 @@ class UIManager {
         container.innerHTML = '<div class="loading-text">加载中...</div>';
 
         try {
-            const response = await fetch('/api/images');
+            const response = await fetch(`/api/images?_t=${Date.now()}`, {
+                cache: 'no-cache'
+            });
             if (response.ok) {
                 const images = await response.json();
                 this.displayExistingImages(images);

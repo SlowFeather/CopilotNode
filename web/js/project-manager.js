@@ -56,7 +56,7 @@ class ProjectManager {
         }
 
         try {
-            const response = await fetch('/api/projects', {
+            const response = await fetch(`/api/projects?_t=${Date.now()}`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -91,7 +91,9 @@ class ProjectManager {
 
     async loadProjectList() {
         try {
-            const response = await fetch('/api/projects');
+            const response = await fetch(`/api/projects?_t=${Date.now()}`, {
+                cache: 'no-cache'
+            });
             if (response.ok) {
                 const data = await response.json();
                 const projects = data.projects || [];
@@ -125,7 +127,7 @@ class ProjectManager {
 
         try {
             // Set the active project
-            const setActiveResponse = await fetch(`/api/projects/${projectId}/activate`, {
+            const setActiveResponse = await fetch(`/api/projects/${projectId}/activate?_t=${Date.now()}`, {
                 method: 'POST'
             });
             

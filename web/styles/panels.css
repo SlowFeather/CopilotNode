@@ -1,5 +1,119 @@
 /* CopilotNode Web UI - Panel Styles */
 
+/* Modifier Keys Container */
+.modifier-keys-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 5px;
+}
+
+.modifier-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    padding: 6px 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    background: var(--background-color);
+    transition: all 0.2s ease;
+    user-select: none;
+    font-size: 12px;
+}
+
+.modifier-checkbox:hover {
+    background: var(--hover-color);
+    border-color: var(--primary-color);
+}
+
+.modifier-checkbox input[type="checkbox"] {
+    margin: 0;
+    width: 14px;
+    height: 14px;
+    accent-color: var(--primary-color);
+}
+
+.modifier-checkbox.checked {
+    background: rgba(52, 152, 219, 0.15);
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+}
+
+.modifier-label {
+    font-weight: 500;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Key input with suggestions */
+.key-input-container {
+    position: relative;
+}
+
+.key-suggestions {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: var(--surface-color);
+    border: 1px solid var(--border-color);
+    border-top: none;
+    border-radius: 0 0 4px 4px;
+    max-height: 150px;
+    overflow-y: auto;
+    z-index: 1000;
+    display: none;
+}
+
+.key-suggestion {
+    padding: 8px 12px;
+    cursor: pointer;
+    font-size: 12px;
+    border-bottom: 1px solid var(--border-light);
+}
+
+.key-suggestion:hover {
+    background: var(--hover-color);
+}
+
+.key-suggestion:last-child {
+    border-bottom: none;
+}
+
+.key-suggestion.selected {
+    background: var(--primary-color);
+    color: white;
+}
+
+/* Enhanced property inputs */
+.property-input.enhanced {
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    padding: 8px 10px;
+    font-size: 13px;
+    transition: border-color 0.2s ease;
+}
+
+.property-input.enhanced:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+}
+
+.property-input.error {
+    border-color: var(--danger-color);
+    box-shadow: 0 0 0 2px rgba(231, 76, 60, 0.2);
+}
+
+.input-help-text {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 4px;
+    font-style: italic;
+}
+
 /* Node Panel */
 .node-panel {
     width: var(--panel-width);

@@ -138,7 +138,9 @@ class ExecutionManager {
 
     async updateStatus() {
         try {
-            const response = await fetch('/api/status');
+            const response = await fetch(`/api/status?_t=${Date.now()}`, {
+                cache: 'no-cache'
+            });
             if (response.ok) {
                 const status = await response.json();
                 this.app.executionStatus = status;
