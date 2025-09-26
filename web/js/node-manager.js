@@ -225,20 +225,108 @@ class NodeManager {
                         <div class="input-help-text">常用: a-z, 0-9, space, enter, tab, shift</div>
                     `;
                 } else {
-                    // Regular input
+                    // Regular input with enhanced placeholders and validation
                     const inputType = typeof value === 'number' ? 'number' : 'text';
                     const enhanced = (key === 'text' && node.title === '键盘') ? 'enhanced' : '';
+
+                    // Enhanced placeholders and constraints
+                    let placeholder = '';
+                    let min = '';
+                    let max = '';
+                    let step = '';
+
+                    if (inputType === 'number') {
+                        step = 'step="0.1"';
+                        switch(key) {
+                            case 'x':
+                            case 'y':
+                                placeholder = 'placeholder="如: 500"';
+                                min = 'min="0"';
+                                max = 'max="3840"';
+                                break;
+                            case 'x_random':
+                            case 'y_random':
+                                placeholder = 'placeholder="如: 5 (±5像素)"';
+                                min = 'min="0"';
+                                max = 'max="100"';
+                                break;
+                            case 'duration':
+                                placeholder = 'placeholder="如: 0.5"';
+                                min = 'min="0.1"';
+                                max = 'max="10"';
+                                break;
+                            case 'speed_factor':
+                                placeholder = 'placeholder="如: 1.0 (正常速度)"';
+                                min = 'min="0.1"';
+                                max = 'max="5"';
+                                break;
+                            case 'confidence':
+                                placeholder = 'placeholder="如: 0.8 (推荐)"';
+                                min = 'min="0.1"';
+                                max = 'max="1"';
+                                step = 'step="0.1"';
+                                break;
+                            case 'clicks':
+                                placeholder = 'placeholder="如: 3"';
+                                min = 'min="1"';
+                                max = 'max="10"';
+                                step = 'step="1"';
+                                break;
+                        }
+                    } else {
+                        // Text input placeholders
+                        switch(key) {
+                            case 'text':
+                                if (node.title === '键盘') {
+                                    placeholder = 'placeholder="输入要发送的文本，如: Hello World"';
+                                }
+                                break;
+                            case 'target_node_id':
+                                placeholder = 'placeholder="目标节点的ID，如: 2"';
+                                break;
+                        }
+                    }
+
                     inputHtml = `<input type="${inputType}" class="property-input ${enhanced}"
                            data-property="${key}"
                            value="${value || ''}"
-                           ${key.includes('image_path') ? 'readonly' : ''}
-                           ${key === 'text' && node.title === '键盘' ? 'placeholder="输入要发送的文本"' : ''}
-                           step="${inputType === 'number' ? '0.1' : ''}">`;
+                           ${placeholder}
+                           ${min}
+                           ${max}
+                           ${step}
+                           ${key.includes('image_path') ? 'readonly' : ''}">`;
                 }
                 
+                // Add help text for complex properties
+                let helpText = '';
+                switch(key) {
+                    case 'x_random':
+                    case 'y_random':
+                        helpText = '<div class="input-help-text">随机偏移可让点击更加自然，避免被检测</div>';
+                        break;
+                    case 'position_mode':
+                        helpText = '<div class="input-help-text">绝对坐标：固定位置 | 当前位置：使用鼠标当前所在位置</div>';
+                        break;
+                    case 'duration':
+                        helpText = '<div class="input-help-text">移动到目标位置所需的时间，越短越快</div>';
+                        break;
+                    case 'speed_factor':
+                        helpText = '<div class="input-help-text">1.0=正常速度，2.0=两倍速度，0.5=一半速度</div>';
+                        break;
+                    case 'confidence':
+                        helpText = '<div class="input-help-text">图像匹配的相似度阈值，0.8是推荐值</div>';
+                        break;
+                    case 'input_type':
+                        if (node.title === '键盘') {
+                            helpText = '<div class="input-help-text">文本：输入字符串 | 单键：单个按键 | 特殊键：功能键 | 组合键：Ctrl+C等</div>';
+                        }
+                        break;
+                }
+
                 html += `<div class="property-group">
                     <label class="property-label">${this.getPropertyLabel(key)}</label>
                     ${inputHtml}
+                    ${helpText}
                 </div>`;
 
                 // Add upload button for image properties
@@ -304,18 +392,34 @@ class NodeManager {
             value = parseFloat(value) || 0;
         }
 
-        // Validate key input for keyboard nodes
+        // Enhanced validation for all inputs
         if (property === 'key' && node.title === '键盘') {
             const isValid = this.validateKeyInput(value);
             event.target.classList.toggle('error', !isValid);
             if (!isValid && !isRealTime) {
-                this.showInputError(event.target, '请输入有效的按键名称');
+                this.showInputError(event.target, '请输入有效的按键名称，如: a, space, enter');
+                return;
+            }
+        } else {
+            // General property validation
+            const validation = this.validatePropertyInput(property, value, node);
+            event.target.classList.toggle('error', !validation.valid);
+            if (!validation.valid && !isRealTime) {
+                this.showInputError(event.target, validation.message);
                 return;
             }
         }
 
-        // Validate hold duration
+        // Auto-correct invalid values for better UX
         if (property === 'hold_duration' && value < 0) {
+            value = 0;
+            event.target.value = value;
+        }
+        if ((property === 'x' || property === 'y') && value < 0) {
+            value = 0;
+            event.target.value = value;
+        }
+        if ((property === 'x_random' || property === 'y_random') && value < 0) {
             value = 0;
             event.target.value = value;
         }
@@ -352,27 +456,27 @@ class NodeManager {
 
     getPropertyLabel(key) {
         const labels = {
-            'x': 'X坐标',
-            'y': 'Y坐标',
-            'x_random': 'X随机范围',
-            'y_random': 'Y随机范围',
-            'duration': '持续时间(秒)',
-            'duration_random': '时间随机范围',
-            'speed_factor': '速度因子',
-            'speed_random': '速度随机范围',
-            'text': '文本内容',
-            'key': '按键',
-            'input_type': '输入类型',
-            'special_key': '特殊按键',
-            'modifier_keys': '修饰键',
-            'hold_duration': '按住时长(秒)',
-            'position_mode': '位置模式',
-            'button': '鼠标按键',
-            'direction': '滚动方向',
+            'x': 'X坐标 (像素)',
+            'y': 'Y坐标 (像素)',
+            'x_random': 'X随机偏移 (±像素)',
+            'y_random': 'Y随机偏移 (±像素)',
+            'duration': '移动时长 (秒)',
+            'duration_random': '时长随机范围 (±秒)',
+            'speed_factor': '速度倍数 (1.0=正常)',
+            'speed_random': '速度随机范围 (±倍数)',
+            'text': '要输入的文本内容',
+            'key': '按键名称',
+            'input_type': '键盘输入类型',
+            'special_key': '特殊功能键',
+            'modifier_keys': '修饰键组合',
+            'hold_duration': '按键持续时长 (秒)',
+            'position_mode': '坐标模式',
+            'button': '鼠标按键类型',
+            'direction': '滚轮方向',
             'clicks': '滚动次数',
-            'image_path': '图像路径',
-            'confidence': '匹配度',
-            'condition_type': '条件类型',
+            'image_path': '图像文件路径',
+            'confidence': '图像匹配阈值 (0-1)',
+            'condition_type': '判断条件类型',
             'target_node_id': '目标节点ID',
             'expected_result': '预期结果',
             'source_id': '源节点ID',
@@ -548,6 +652,39 @@ class NodeManager {
         ];
 
         return validKeys.includes(value.toLowerCase().trim());
+    }
+
+    // Add comprehensive input validation for all node types
+    validatePropertyInput(property, value, node) {
+        const validationRules = {
+            'x': { min: 0, max: 3840, type: 'number', message: 'X坐标应在 0-3840 范围内' },
+            'y': { min: 0, max: 2160, type: 'number', message: 'Y坐标应在 0-2160 范围内' },
+            'x_random': { min: 0, max: 100, type: 'number', message: 'X随机范围应在 0-100 范围内' },
+            'y_random': { min: 0, max: 100, type: 'number', message: 'Y随机范围应在 0-100 范围内' },
+            'duration': { min: 0.1, max: 10, type: 'number', message: '持续时间应在 0.1-10 秒范围内' },
+            'speed_factor': { min: 0.1, max: 5, type: 'number', message: '速度因子应在 0.1-5 范围内' },
+            'confidence': { min: 0.1, max: 1, type: 'number', message: '匹配度应在 0.1-1 范围内' },
+            'clicks': { min: 1, max: 10, type: 'integer', message: '滚动次数应在 1-10 范围内' },
+            'hold_duration': { min: 0, max: 5, type: 'number', message: '按键时长应在 0-5 秒范围内' }
+        };
+
+        const rule = validationRules[property];
+        if (!rule) return { valid: true };
+
+        if (rule.type === 'number' || rule.type === 'integer') {
+            const numValue = parseFloat(value);
+            if (isNaN(numValue)) {
+                return { valid: false, message: `${property} 必须是数字` };
+            }
+            if (rule.type === 'integer' && !Number.isInteger(numValue)) {
+                return { valid: false, message: `${property} 必须是整数` };
+            }
+            if (numValue < rule.min || numValue > rule.max) {
+                return { valid: false, message: rule.message };
+            }
+        }
+
+        return { valid: true };
     }
 
     showInputError(input, message) {
