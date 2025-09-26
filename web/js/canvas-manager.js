@@ -15,7 +15,7 @@ class CanvasManager {
         // Enable multi-selection support
         this.app.canvas.allow_dragcanvas = true;
         this.app.canvas.allow_dragnodes = true;
-        this.app.canvas.multi_select = true;
+        this.app.canvas.multi_select = false;
         this.app.canvas.allow_reconnect_links = true;
         
         // Set grid background image

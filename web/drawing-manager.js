@@ -325,7 +325,6 @@ class DrawingManager {
                 }
             });
         });
-
         // Action buttons
         drawingList.querySelectorAll('.drawing-action-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
